@@ -1385,7 +1385,7 @@ export default function Dashboard() {
 
       <div className="relative z-10">
         <Toast toasts={toasts} removeToast={removeToast} />
-        {showOnboarding && <OnboardingTour onComplete={() => { localStorage.setItem("spamMusubiTutorial", "completed"); setShowOnboarding(false); }} onSkip={() => { localStorage.setItem("spamMusubiTutorial", "skipped"); setShowOnboarding(false); }} />}
+        {false && <OnboardingTour onComplete={() => { localStorage.setItem("spamMusubiTutorial", "completed"); setShowOnboarding(false); }} onSkip={() => { localStorage.setItem("spamMusubiTutorial", "skipped"); setShowOnboarding(false); }} />}
 
         <div className="bg-black/80 border-b border-amber-400/20 px-6 py-4 sticky top-0 z-50 backdrop-blur">
           <div className="max-w-2xl mx-auto flex justify-between items-center">

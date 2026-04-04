@@ -85,7 +85,7 @@ export default function Login() {
         <form onSubmit={handleEmailLogin} className="space-y-4">
           {/* Email field */}
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray/400" />
             <input
               type="email"
               placeholder="Email"
@@ -98,7 +98,7 @@ export default function Login() {
 
           {/* Password field with show/hide */}
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray/400" />
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
