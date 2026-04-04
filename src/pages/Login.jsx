@@ -1,4 +1,4 @@
-import { signInWithEmailAndPassword, sendPasswordResetEmail, setPersistence, browserLocalPersistence } from "firebase/auth"
+import { signInWithEmailAndPassword, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth"
 import { auth } from "../firebase/firebase"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -63,8 +63,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+    <div className="relative min-h-screen bg-black flex items-center justify-center p-4 overflow-hidden">
+      {/* Background image */}
+      <div className="absolute inset-0 z-0">
+        <img
+          src="/musubi.png"
+          alt="Spam Musubi"
+          className="w-full h-full object-cover opacity-40"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-[#0a0a0a]" />
+      </div>
+
+      {/* Login card */}
+      <div className="relative z-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">🍱</div>
           <h1 className="text-3xl font-black text-white">Welcome Back</h1>
@@ -72,6 +83,7 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleEmailLogin} className="space-y-4">
+          {/* Email field */}
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
@@ -84,6 +96,7 @@ export default function Login() {
             />
           </div>
 
+          {/* Password field with show/hide */}
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
@@ -103,6 +116,7 @@ export default function Login() {
             </button>
           </div>
 
+          {/* Remember me & Forgot password */}
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm text-white/50">
               <input
@@ -122,9 +136,11 @@ export default function Login() {
             </button>
           </div>
 
+          {/* Error / success messages */}
           {error && <div className="text-red-400 text-sm text-center animate-pulse">{error}</div>}
           {resetMessage && <div className="text-green-400 text-sm text-center">{resetMessage}</div>}
 
+          {/* Submit button with spinner */}
           <button
             type="submit"
             disabled={loading}
@@ -134,6 +150,7 @@ export default function Login() {
           </button>
         </form>
 
+        {/* Sign up link */}
         <div className="text-center mt-6">
           <button
             onClick={() => navigate("/signup")}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth"
 import { auth } from "../firebase/firebase"
 import { useNavigate } from "react-router-dom"
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Loader2 } from "lucide-react"
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -16,7 +16,7 @@ export default function Signup() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
-  // Load saved form data from localStorage (if returning user)
+  // Load saved form data from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("spamMusubiSignupInfo")
     if (saved) {
@@ -28,14 +28,10 @@ export default function Signup() {
     }
   }, [])
 
+  // Simplified password validation – only check length
   const validatePassword = (pwd) => {
-    const errors = []
-    if (pwd.length < 8) errors.push("at least 8 characters")
-    if (!/[A-Z]/.test(pwd)) errors.push("one uppercase letter")
-    if (!/[a-z]/.test(pwd)) errors.push("one lowercase letter")
-    if (!/[0-9]/.test(pwd)) errors.push("one number")
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) errors.push("one special character")
-    return errors
+    if (pwd.length < 6) return ["at least 6 characters"]
+    return []
   }
 
   const handleSubmit = async (e) => {
@@ -90,8 +86,12 @@ export default function Signup() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="bg-[#111] border border-white/10 rounded-2xl p-8 w-full max-w-md text-center">
+      <div className="relative min-h-screen bg-black flex items-center justify-center p-4 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img src="/musubi.png" alt="Spam Musubi" className="w-full h-full object-cover opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-[#0a0a0a]" />
+        </div>
+        <div className="relative z-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 w-full max-w-md text-center">
           <div className="text-6xl mb-4">📧</div>
           <h1 className="text-2xl font-black text-white mb-4">Verify Your Email</h1>
           <p className="text-white/70 mb-4">
@@ -117,15 +117,19 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="bg-[#111] border border-white/10 rounded-2xl p-8 w-full max-w-md">
+    <div className="relative min-h-screen bg-black flex items-center justify-center p-4 overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <img src="/musubi.png" alt="Spam Musubi" className="w-full h-full object-cover opacity-40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-[#0a0a0a]" />
+      </div>
+
+      <div className="relative z-10 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">🍱</div>
           <h1 className="text-3xl font-black text-white">Create Account</h1>
           <p className="text-white/50 mt-2 text-sm">Sign up to start ordering</p>
         </div>
         
-        {/* Saved info button */}
         <button
           onClick={useSavedInfo}
           className="w-full text-sm text-amber-400 hover:text-amber-300 mb-4 flex items-center justify-center gap-2"
@@ -134,7 +138,6 @@ export default function Signup() {
         </button>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name (optional but good for UX) */}
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
@@ -142,11 +145,10 @@ export default function Signup() {
               placeholder="Full Name (optional)"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
             />
           </div>
           
-          {/* Email */}
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
@@ -154,20 +156,19 @@ export default function Signup() {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
           </div>
           
-          {/* Password */}
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Password (min 8 chars, 1 uppercase, 1 number, 1 special)"
+              placeholder="Password (min. 6 characters)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
+              className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
             <button
@@ -179,7 +180,6 @@ export default function Signup() {
             </button>
           </div>
           
-          {/* Confirm Password */}
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
@@ -187,7 +187,7 @@ export default function Signup() {
               placeholder="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
+              className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
             <button
@@ -204,9 +204,9 @@ export default function Signup() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-400 text-black font-bold py-3 rounded-xl hover:bg-amber-300 disabled:opacity-50 transition-all"
+            className="w-full bg-amber-400 hover:bg-amber-300 text-black font-bold py-3 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
           >
-            {loading ? "Creating account..." : "Sign Up"}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign Up"}
           </button>
         </form>
         
