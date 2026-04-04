@@ -16,10 +16,10 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Handle redirect result (for Google sign-in)
+    // Handle Google redirect result first
     getRedirectResult(auth)
       .then((result) => {
-        if (result) {
+        if (result?.user) {
           const user = result.user
           console.log("Redirect login success:", user.email)
           if (user.email === ADMIN_EMAIL) {
@@ -29,38 +29,65 @@ function App() {
           }
         }
       })
-      .catch((err) => console.error("Redirect error:", err))
+      .catch((err) => {
+        console.error("Redirect error:", err)
+      })
 
-    // Listen for auth state (for email/password and page refresh)
+    // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        console.log("Auth state changed:", user.email)
-        const userRef = doc(db, "users", user.uid)
-        await setDoc(userRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true })
-        
-        // Update lastSeen every 30 seconds
-        const interval = setInterval(async () => {
-          await updateDoc(userRef, { lastSeen: new Date().toISOString() })
-        }, 30000)
-        
-        const handleBeforeUnload = () => {
-          updateDoc(userRef, { online: false, lastSeen: new Date().toISOString() }).catch(() => {})
+        try {
+          const userRef = doc(db, "users", user.uid)
+          await setDoc(userRef, {
+            online: true,
+            lastSeen: new Date().toISOString()
+          }, { merge: true })
+
+          const interval = setInterval(async () => {
+            await updateDoc(userRef, {
+              lastSeen: new Date().toISOString()
+            })
+          }, 30000)
+
+          const handleBeforeUnload = () => {
+            updateDoc(userRef, {
+              online: false,
+              lastSeen: new Date().toISOString()
+            }).catch(() => {})
+          }
+          window.addEventListener("beforeunload", handleBeforeUnload)
+
+          setLoading(false)
+
+          return () => {
+            clearInterval(interval)
+            window.removeEventListener("beforeunload", handleBeforeUnload)
+            updateDoc(userRef, {
+              online: false,
+              lastSeen: new Date().toISOString()
+            }).catch(() => {})
+          }
+        } catch (err) {
+          console.error("Error updating user status:", err)
+          setLoading(false)
         }
-        window.addEventListener("beforeunload", handleBeforeUnload)
-        
-        return () => {
-          clearInterval(interval)
-          window.removeEventListener("beforeunload", handleBeforeUnload)
-          updateDoc(userRef, { online: false, lastSeen: new Date().toISOString() }).catch(() => {})
-        }
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     })
+
     return () => unsubscribe()
   }, [navigate])
 
   if (loading) {
-    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-4 animate-bounce">🍱</div>
+          <p className="text-white/50">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
