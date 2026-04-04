@@ -1,11 +1,13 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth"
 import { auth } from "../firebase/firebase"
 import { useNavigate } from "react-router-dom"
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle } from "lucide-react"
 
 export default function Signup() {
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
+  const [fullName, setFullName] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -14,14 +16,25 @@ export default function Signup() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
-  // Password strength validation
+  // Load saved form data from localStorage (if returning user)
+  useEffect(() => {
+    const saved = localStorage.getItem("spamMusubiSignupInfo")
+    if (saved) {
+      try {
+        const { email: savedEmail, fullName: savedName } = JSON.parse(saved)
+        if (savedEmail) setEmail(savedEmail)
+        if (savedName) setFullName(savedName)
+      } catch (e) {}
+    }
+  }, [])
+
   const validatePassword = (pwd) => {
     const errors = []
     if (pwd.length < 8) errors.push("at least 8 characters")
     if (!/[A-Z]/.test(pwd)) errors.push("one uppercase letter")
     if (!/[a-z]/.test(pwd)) errors.push("one lowercase letter")
     if (!/[0-9]/.test(pwd)) errors.push("one number")
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) errors.push("one special character (!@#$%^&*)")
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) errors.push("one special character")
     return errors
   }
 
@@ -30,14 +43,12 @@ export default function Signup() {
     setLoading(true)
     setError("")
     
-    // Check password match
     if (password !== confirmPassword) {
       setError("Passwords do not match")
       setLoading(false)
       return
     }
     
-    // Validate password strength
     const passwordErrors = validatePassword(password)
     if (passwordErrors.length > 0) {
       setError(`Password must contain: ${passwordErrors.join(", ")}`)
@@ -48,6 +59,10 @@ export default function Signup() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       await sendEmailVerification(userCredential.user)
+      
+      // Save signup info for next time
+      localStorage.setItem("spamMusubiSignupInfo", JSON.stringify({ email, fullName }))
+      
       setSuccess(true)
     } catch (err) {
       console.error(err)
@@ -55,12 +70,21 @@ export default function Signup() {
         setError("Email already registered. Please sign in instead.")
       } else if (err.code === "auth/invalid-email") {
         setError("Invalid email address")
-      } else if (err.code === "auth/weak-password") {
-        setError("Password is too weak. Please choose a stronger password.")
       } else {
         setError(err.message)
       }
       setLoading(false)
+    }
+  }
+
+  const useSavedInfo = () => {
+    const saved = localStorage.getItem("spamMusubiSignupInfo")
+    if (saved) {
+      try {
+        const { email: savedEmail, fullName: savedName } = JSON.parse(saved)
+        if (savedEmail) setEmail(savedEmail)
+        if (savedName) setFullName(savedName)
+      } catch (e) {}
     }
   }
 
@@ -73,9 +97,14 @@ export default function Signup() {
           <p className="text-white/70 mb-4">
             We've sent a verification email to <strong className="text-amber-400">{email}</strong>
           </p>
-          <p className="text-white/50 text-sm mb-6">
-            Please check your inbox and click the verification link to complete your registration.
-          </p>
+          <div className="bg-amber-400/10 border border-amber-400/30 rounded-xl p-4 mb-6 text-left">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-white/70 text-sm">
+                <strong className="text-amber-400">Check your spam folder!</strong> Sometimes our emails get filtered. If you don't see it in your inbox, please check your spam/junk folder and mark it as "Not spam".
+              </p>
+            </div>
+          </div>
           <button
             onClick={() => navigate("/login")}
             className="w-full bg-amber-400 text-black font-bold py-3 rounded-xl hover:bg-amber-300"
@@ -96,23 +125,49 @@ export default function Signup() {
           <p className="text-white/50 mt-2 text-sm">Sign up to start ordering</p>
         </div>
         
+        {/* Saved info button */}
+        <button
+          onClick={useSavedInfo}
+          className="w-full text-sm text-amber-400 hover:text-amber-300 mb-4 flex items-center justify-center gap-2"
+        >
+          🔄 Use saved information
+        </button>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
-            required
-          />
-          
+          {/* Full Name (optional but good for UX) */}
           <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <input
+              type="text"
+              placeholder="Full Name (optional)"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
+            />
+          </div>
+          
+          {/* Email */}
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
+              required
+            />
+          </div>
+          
+          {/* Password */}
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Password (min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special)"
+              placeholder="Password (min 8 chars, 1 uppercase, 1 number, 1 special)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white pr-12"
+              className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
               required
             />
             <button
@@ -120,17 +175,19 @@ export default function Signup() {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
             >
-              {showPassword ? "🙈" : "👁️"}
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
           
+          {/* Confirm Password */}
           <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white pr-12"
+              className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
               required
             />
             <button
@@ -138,18 +195,16 @@ export default function Signup() {
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
             >
-              {showConfirmPassword ? "🙈" : "👁️"}
+              {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
           
-          {error && (
-            <div className="text-red-400 text-sm text-center">{error}</div>
-          )}
+          {error && <div className="text-red-400 text-sm text-center">{error}</div>}
           
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-400 text-black font-bold py-3 rounded-xl hover:bg-amber-300 disabled:opacity-50"
+            className="w-full bg-amber-400 text-black font-bold py-3 rounded-xl hover:bg-amber-300 disabled:opacity-50 transition-all"
           >
             {loading ? "Creating account..." : "Sign Up"}
           </button>
@@ -158,7 +213,7 @@ export default function Signup() {
         <div className="text-center mt-6">
           <button
             onClick={() => navigate("/login")}
-            className="text-white/50 text-sm hover:text-amber-400"
+            className="text-white/40 text-sm hover:text-amber-400"
           >
             Already have an account? Sign In →
           </button>
