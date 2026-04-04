@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const ADMIN_UID = "Ptyo15VS93VJxT4PS6POmwpQQfC2";
@@ -86,15 +86,38 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Real‑time messages
+  // ========== FIXED: Real‑time messages listener (robust) ==========
   useEffect(() => {
     if (!otherUserId) return;
     const messagesRef = collection(db, "chats", otherUserId, "messages");
+    // Use Firestore server timestamp ordering (works with both strings and Timestamp)
     const q = query(messagesRef, orderBy("timestamp", "asc"));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setMessages(msgs);
-    });
+    
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        // Filter out any message without a timestamp (to avoid broken ordering)
+        const msgs = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(msg => msg.timestamp != null);
+        setMessages(msgs);
+      },
+      (error) => {
+        console.error("Chat listener error:", error);
+        // Fallback: try to fetch messages once if listener fails
+        const fetchOnce = async () => {
+          try {
+            const snap = await getDocs(q);
+            const msgs = snap.docs
+              .map(doc => ({ id: doc.id, ...doc.data() }))
+              .filter(msg => msg.timestamp != null);
+            setMessages(msgs);
+          } catch (e) {
+            console.error("Fallback fetch failed:", e);
+          }
+        };
+        fetchOnce();
+      }
+    );
     return unsubscribe;
   }, [otherUserId]);
 
@@ -179,6 +202,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchUserDetails();
   }, [otherUserId, isAdmin]);
 
+  // ========== FIXED: Send message with Firestore server timestamp ==========
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
     setSending(true);
@@ -191,7 +215,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
         fromUid: senderId,
         toUid: recipientId,
-        timestamp: new Date().toISOString(),
+        timestamp: serverTimestamp(), // ✅ Changed from string to Firestore Timestamp
         read: false
       };
       await addDoc(collection(db, "chats", recipientId, "messages"), messageData);
@@ -210,7 +234,11 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     const groups = {};
     messages.forEach(msg => {
       if (!msg.timestamp) return;
-      const date = new Date(msg.timestamp).toLocaleDateString();
+      // Convert Firestore Timestamp or ISO string to Date
+      let dateObj;
+      if (msg.timestamp?.toDate) dateObj = msg.timestamp.toDate();
+      else dateObj = new Date(msg.timestamp);
+      const date = dateObj.toLocaleDateString();
       if (!groups[date]) groups[date] = [];
       groups[date].push(msg);
     });
@@ -228,7 +256,12 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   let newMessagesStartIndex = -1;
   if (showNewSeparator && lastReadTimestamp) {
     for (let i = 0; i < messages.length; i++) {
-      if (messages[i].timestamp > lastReadTimestamp) {
+      const msgTime = messages[i].timestamp;
+      if (!msgTime) continue;
+      let msgTimeStr;
+      if (msgTime?.toDate) msgTimeStr = msgTime.toDate().toISOString();
+      else msgTimeStr = msgTime;
+      if (msgTimeStr > lastReadTimestamp) {
         newMessagesStartIndex = i;
         break;
       }
@@ -280,7 +313,12 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
                 for (const msg of msgs) {
                   const isMyMessage = (isAdmin && msg.sender === "admin") || (!isAdmin && msg.sender === "customer");
                   let timeStr = "";
-                  try { timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch(e) {}
+                  try {
+                    let dateObj;
+                    if (msg.timestamp?.toDate) dateObj = msg.timestamp.toDate();
+                    else dateObj = new Date(msg.timestamp);
+                    timeStr = dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  } catch(e) {}
                   if (showNewSeparator && msgIndex === newMessagesStartIndex) {
                     elements.push(
                       <div key={`new-sep-${msg.id}`} className="relative my-4">
