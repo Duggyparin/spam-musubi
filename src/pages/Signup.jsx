@@ -16,6 +16,12 @@ export default function Signup() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
+  // Facebook-style focus states
+  const [fullNameFocused, setFullNameFocused] = useState(false)
+  const [emailFocused, setEmailFocused] = useState(false)
+  const [passwordFocused, setPasswordFocused] = useState(false)
+  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false)
+
   // Load saved form data from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("spamMusubiSignupInfo")
@@ -28,7 +34,6 @@ export default function Signup() {
     }
   }, [])
 
-  // Simplified password validation – only check length
   const validatePassword = (pwd) => {
     if (pwd.length < 6) return ["at least 6 characters"]
     return []
@@ -56,9 +61,7 @@ export default function Signup() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       await sendEmailVerification(userCredential.user)
       
-      // Save signup info for next time
       localStorage.setItem("spamMusubiSignupInfo", JSON.stringify({ email, fullName }))
-      
       setSuccess(true)
     } catch (err) {
       console.error(err)
@@ -138,36 +141,51 @@ export default function Signup() {
         </button>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Full Name */}
           <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <User className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-200 ${
+              fullName || fullNameFocused ? 'text-gray-400' : 'text-gray-600 opacity-0'
+            }`} />
             <input
               type="text"
               placeholder="Full Name (optional)"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
+              onFocus={() => setFullNameFocused(true)}
+              onBlur={() => setFullNameFocused(false)}
               className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
             />
           </div>
           
+          {/* Email */}
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-200 ${
+              email || emailFocused ? 'text-gray-400' : 'text-gray-600 opacity-0'
+            }`} />
             <input
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
               className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
           </div>
           
+          {/* Password */}
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-200 ${
+              password || passwordFocused ? 'text-gray-400' : 'text-gray-600 opacity-0'
+            }`} />
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Password (min. 6 characters)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
               className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
@@ -180,13 +198,18 @@ export default function Signup() {
             </button>
           </div>
           
+          {/* Confirm Password */}
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-200 ${
+              confirmPassword || confirmPasswordFocused ? 'text-gray-400' : 'text-gray-600 opacity-0'
+            }`} />
             <input
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              onFocus={() => setConfirmPasswordFocused(true)}
+              onBlur={() => setConfirmPasswordFocused(false)}
               className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />

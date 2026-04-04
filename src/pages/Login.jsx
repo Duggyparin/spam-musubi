@@ -15,6 +15,10 @@ export default function Login() {
   const [error, setError] = useState("")
   const [resetMessage, setResetMessage] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
+  
+  // For Facebook-style icon visibility
+  const [emailFocused, setEmailFocused] = useState(false)
+  const [passwordFocused, setPasswordFocused] = useState(false)
 
   const handleEmailLogin = async (e) => {
     e.preventDefault()
@@ -25,7 +29,8 @@ export default function Login() {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence)
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
-      if (!user.emailVerified) {
+      // Bypass email verification for admin
+      if (user.email !== ADMIN_EMAIL && !user.emailVerified) {
         setError("Please verify your email first. Check your inbox and spam folder.")
         setLoading(false)
         return
@@ -84,25 +89,33 @@ export default function Login() {
         <form onSubmit={handleEmailLogin} className="space-y-4">
           {/* Email field */}
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-200 ${
+              email || emailFocused ? 'text-gray-400' : 'text-gray-600 opacity-0'
+            }`} />
             <input
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
               className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
           </div>
 
-          {/* Password field with show/hide */}
+          {/* Password field */}
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-black" />
+            <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 transition-all duration-200 ${
+              password || passwordFocused ? 'text-gray-400' : 'text-gray-600 opacity-0'
+            }`} />
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
               className="w-full pl-10 pr-12 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
@@ -139,7 +152,7 @@ export default function Login() {
           {error && <div className="text-red-400 text-sm text-center animate-pulse">{error}</div>}
           {resetMessage && <div className="text-green-400 text-sm text-center">{resetMessage}</div>}
 
-          {/* Submit button with spinner */}
+          {/* Submit button */}
           <button
             type="submit"
             disabled={loading}
