@@ -990,25 +990,44 @@ export default function Dashboard() {
     fetchPopularProducts();
   }, []);
 
-  // ----- FETCH PRODUCT STOCK -----
-  useEffect(() => {
-    const fetchStock = async () => {
-      try {
-        const stockRef = collection(db, "productStock");
-        const snapshot = await getDocs(stockRef);
+  // ----- FETCH PRODUCT STOCK (with auto‑create) -----
+useEffect(() => {
+  const fetchStock = async () => {
+    try {
+      setStockLoading(true);
+      const stockRef = collection(db, "productStock");
+      const snapshot = await getDocs(stockRef);
+      
+      if (snapshot.empty) {
+        console.log("No stock documents found. Creating default stock...");
+        // Create default stock for each product
+        for (const product of PRODUCTS) {
+          const stockDoc = doc(db, "productStock", product.id);
+          await setDoc(stockDoc, { stock: 50 }, { merge: true });
+        }
+        // Refetch after creating
+        const newSnapshot = await getDocs(stockRef);
+        const stockData = {};
+        newSnapshot.forEach(doc => {
+          stockData[doc.id] = doc.data().stock || 0;
+        });
+        setProductStock(stockData);
+      } else {
         const stockData = {};
         snapshot.forEach(doc => {
           stockData[doc.id] = doc.data().stock || 0;
         });
         setProductStock(stockData);
-      } catch (error) {
-        console.error("Error fetching stock:", error);
-      } finally {
-        setStockLoading(false);
       }
-    };
-    fetchStock();
-  }, []);
+    } catch (error) {
+      console.error("Error fetching stock:", error);
+      addToast("Unable to load stock. Please refresh the page.", "error", "⚠️");
+    } finally {
+      setStockLoading(false);
+    }
+  };
+  fetchStock();
+}, []);
 
   // ----- FETCH COMPLETED ORDERS FOR REVIEW AND PENDING ORDERS FOR MAIN DASHBOARD -----
   const fetchCompletedOrders = async () => {
@@ -1078,7 +1097,6 @@ export default function Dashboard() {
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setDate(tomorrow.getDate() + 2);
   const tomorrowDate = tomorrow.toISOString().split("T")[0];
   const dayOfWeek = tomorrow.toLocaleDateString("en-US", { weekday: "long" });
   const tomorrowDisplay = tomorrow.toLocaleDateString("en-PH", {
