@@ -1,71 +1,18 @@
-import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "firebase/auth"
+import { signInWithRedirect, GoogleAuthProvider } from "firebase/auth"
 import { auth } from "../firebase/firebase"
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState } from "react"
 import BrowserRedirect from "../components/BrowserRedirect"
 
-const ADMIN_EMAIL = "monsanto.bryann@gmail.com"
 const provider = new GoogleAuthProvider()
 
 export default function Login() {
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-
-  // Detect if user is on mobile
-  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
-
-  // Handle redirect result (for mobile)
-  useEffect(() => {
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth)
-        if (result) {
-          const user = result.user
-          if (user.email === ADMIN_EMAIL) {
-            navigate("/admin-spammusubi", { replace: true })
-          } else {
-            navigate("/dashboard", { replace: true })
-          }
-        }
-      } catch (error) {
-        console.error("Redirect error:", error)
-        setError("Login failed. Please try again.")
-        setLoading(false)
-      }
-    }
-    handleRedirectResult()
-  }, [navigate])
 
   const handleGoogleLogin = () => {
     setLoading(true)
     setError(null)
-    
-    if (isMobile) {
-      // Mobile: use redirect (no popup blocking issues)
-      signInWithRedirect(auth, provider)
-      // Page will redirect – no need to setLoading(false)
-    } else {
-      // Desktop: use popup (faster, better UX)
-      signInWithPopup(auth, provider)
-        .then((result) => {
-          const user = result.user
-          if (user.email === ADMIN_EMAIL) {
-            navigate("/admin-spammusubi", { replace: true })
-          } else {
-            navigate("/dashboard", { replace: true })
-          }
-        })
-        .catch((error) => {
-          console.error("Popup error:", error)
-          if (error.code === "auth/popup-blocked") {
-            setError("Popup blocked. Please allow popups for this site.")
-          } else {
-            setError(error.message)
-          }
-          setLoading(false)
-        })
-    }
+    signInWithRedirect(auth, provider)
   }
 
   return (
@@ -99,7 +46,7 @@ export default function Login() {
               <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {loading ? "Signing in..." : "Sign in with Google"}
+            {loading ? "Redirecting..." : "Sign in with Google"}
           </button>
           <div className="mt-6 text-center text-white/30 text-xs">
             <p>Only USTP students and staff may order</p>
