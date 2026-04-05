@@ -7,7 +7,7 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCPLyRka9qib7YdeyrEz5R6FguPOe6i7cA",
-  authDomain: "spam-musubi.vercel.app",
+  authDomain: "spam-musubi-a1eab.firebaseapp.com",
   projectId: "spam-musubi-a1eab",
   storageBucket: "spam-musubi-a1eab.firebasestorage.app",
   messagingSenderId: "74371417008",
