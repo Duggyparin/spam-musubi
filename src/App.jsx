@@ -13,27 +13,36 @@ const ADMIN_EMAIL = "monsanto.bryann@gmail.com"
 function AuthHandler() {
   const navigate = useNavigate()
   const [error, setError] = useState(false)
+  const [debug, setDebug] = useState("Initializing...")
 
   useEffect(() => {
     const handleRedirect = async () => {
       try {
+        setDebug("Calling getRedirectResult...")
+        console.log("AuthHandler: calling getRedirectResult")
         const result = await getRedirectResult(auth)
-        console.log("AuthHandler - getRedirectResult:", result)
+        console.log("AuthHandler: result =", result)
+        setDebug(`Result: ${result ? "User found" : "No result"}`)
         
         if (result) {
           const user = result.user
           console.log("User signed in:", user.email)
+          setDebug(`User: ${user.email}`)
           if (user.email === ADMIN_EMAIL) {
+            console.log("Navigating to admin")
             navigate("/admin-spammusubi", { replace: true })
           } else {
+            console.log("Navigating to dashboard")
             navigate("/dashboard", { replace: true })
           }
         } else {
           console.log("No redirect result, going to login")
-          navigate("/login", { replace: true })
+          setDebug("No result, redirecting to login...")
+          setTimeout(() => navigate("/login", { replace: true }), 1000)
         }
       } catch (err) {
         console.error("AuthHandler error:", err)
+        setDebug(`Error: ${err.message}`)
         setError(true)
       }
     }
@@ -51,8 +60,9 @@ function AuthHandler() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center text-white">
-      Completing sign in...
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
+      <div className="text-xl">Completing sign in...</div>
+      <div className="text-sm text-white/50 mt-4">{debug}</div>
     </div>
   )
 }
@@ -93,7 +103,6 @@ function App() {
 
   return (
     <Routes>
-      {/* THIS ROUTE MUST BE EXACTLY /__/auth/handler */}
       <Route path="/__/auth/handler" element={<AuthHandler />} />
       <Route path="/__/auth/iframe" element={null} />
       <Route path="/" element={<Landing />} />
