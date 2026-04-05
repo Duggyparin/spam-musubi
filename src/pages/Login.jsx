@@ -24,7 +24,7 @@ export default function Login() {
         navigate("/dashboard", { replace: true })
       }
     } catch (error) {
-      console.error(error)
+      console.error("Popup error:", error)
       if (error.code === "auth/popup-blocked") {
         setError("Popup blocked. Please allow popups for this site.")
       } else {
