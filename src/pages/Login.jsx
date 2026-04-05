@@ -1,6 +1,6 @@
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth"
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "firebase/auth"
 import { auth } from "../firebase/firebase"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import BrowserRedirect from "../components/BrowserRedirect"
 
@@ -12,25 +12,59 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleGoogleLogin = async () => {
+  // Detect if user is on mobile
+  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
+
+  // Handle redirect result (for mobile)
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result) {
+          const user = result.user
+          if (user.email === ADMIN_EMAIL) {
+            navigate("/admin-spammusubi", { replace: true })
+          } else {
+            navigate("/dashboard", { replace: true })
+          }
+        }
+      } catch (error) {
+        console.error("Redirect error:", error)
+        setError("Login failed. Please try again.")
+        setLoading(false)
+      }
+    }
+    handleRedirectResult()
+  }, [navigate])
+
+  const handleGoogleLogin = () => {
     setLoading(true)
     setError(null)
-    try {
-      const result = await signInWithPopup(auth, provider)
-      const user = result.user
-      if (user.email === ADMIN_EMAIL) {
-        navigate("/admin-spammusubi", { replace: true })
-      } else {
-        navigate("/dashboard", { replace: true })
-      }
-    } catch (error) {
-      console.error("Popup error:", error)
-      if (error.code === "auth/popup-blocked") {
-        setError("Popup blocked. Please allow popups for this site.")
-      } else {
-        setError(error.message)
-      }
-      setLoading(false)
+    
+    if (isMobile) {
+      // Mobile: use redirect (no popup blocking issues)
+      signInWithRedirect(auth, provider)
+      // Page will redirect – no need to setLoading(false)
+    } else {
+      // Desktop: use popup (faster, better UX)
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user
+          if (user.email === ADMIN_EMAIL) {
+            navigate("/admin-spammusubi", { replace: true })
+          } else {
+            navigate("/dashboard", { replace: true })
+          }
+        })
+        .catch((error) => {
+          console.error("Popup error:", error)
+          if (error.code === "auth/popup-blocked") {
+            setError("Popup blocked. Please allow popups for this site.")
+          } else {
+            setError(error.message)
+          }
+          setLoading(false)
+        })
     }
   }
 
