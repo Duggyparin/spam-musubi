@@ -13,6 +13,7 @@ export default function Login() {
     setLoading(true)
     setError(null)
     signInWithRedirect(auth, provider)
+    // Page will redirect to Google – no need to setLoading(false)
   }
 
   return (
