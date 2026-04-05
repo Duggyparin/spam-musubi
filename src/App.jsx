@@ -5,7 +5,7 @@ import { auth, db } from "./firebase/firebase"
 import { onAuthStateChanged } from "firebase/auth"
 import Landing from './pages/Landing'
 import Login from './pages/Login'
-import EmailLogin from './pages/EmailLogin'
+import Signup from './pages/Signup'  // 👈 ADD THIS
 import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
 
@@ -18,7 +18,6 @@ function App() {
         const userRef = doc(db, "users", user.uid)
         await setDoc(userRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true })
         
-        // Update lastSeen every 30 seconds
         const interval = setInterval(async () => {
           await updateDoc(userRef, { lastSeen: new Date().toISOString() })
         }, 30000)
@@ -47,7 +46,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/emaillogin" element={<EmailLogin />} />
+      <Route path="/signup" element={<Signup />} />  {/* 👈 ADD THIS LINE */}
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/admin-spammusubi" element={<Admin />} />
     </Routes>

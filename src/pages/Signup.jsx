@@ -30,13 +30,8 @@ export default function Signup() {
     }
     
     try {
-      // Create user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      const user = userCredential.user
-      
-      // Send verification email
-      await sendEmailVerification(user)
-      
+      await sendEmailVerification(userCredential.user)
       setSuccess(true)
     } catch (err) {
       console.error(err)
