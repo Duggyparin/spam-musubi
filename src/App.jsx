@@ -93,6 +93,7 @@ function App() {
 
   return (
     <Routes>
+      {/* THIS ROUTE MUST BE EXACTLY /__/auth/handler */}
       <Route path="/__/auth/handler" element={<AuthHandler />} />
       <Route path="/__/auth/iframe" element={null} />
       <Route path="/" element={<Landing />} />
