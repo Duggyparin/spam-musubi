@@ -1,74 +1,12 @@
-import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "firebase/auth"
+import { signInWithRedirect, GoogleAuthProvider } from "firebase/auth"
 import { auth } from "../firebase/firebase"
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
 import BrowserRedirect from "../components/BrowserRedirect"
 
-const ADMIN_EMAIL = "monsanto.bryann@gmail.com"
 const provider = new GoogleAuthProvider()
 
 export default function Login() {
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  // Check if already logged in via redirect result
-  useEffect(() => {
-    const checkRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth)
-        if (result) {
-          const user = result.user
-          if (user.email === ADMIN_EMAIL) {
-            navigate("/admin-spammusubi", { replace: true })
-          } else {
-            navigate("/dashboard", { replace: true })
-          }
-        }
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    checkRedirect()
-  }, [navigate])
-
-  // Detect if on mobile
-  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
-
   const handleGoogleLogin = () => {
-    setLoading(true)
-    setError(null)
-    
-    if (isMobile) {
-      // Mobile: use redirect (no popup issues)
-      signInWithRedirect(auth, provider)
-    } else {
-      // Desktop: use popup
-      signInWithPopup(auth, provider)
-        .then((result) => {
-          const user = result.user
-          if (user.email === ADMIN_EMAIL) {
-            navigate("/admin-spammusubi", { replace: true })
-          } else {
-            navigate("/dashboard", { replace: true })
-          }
-        })
-        .catch((error) => {
-          console.error(error)
-          setError(error.message)
-          setLoading(false)
-        })
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        Loading...
-      </div>
-    )
+    signInWithRedirect(auth, provider)
   }
 
   return (
@@ -86,15 +24,10 @@ export default function Login() {
             <p className="text-white/50 mt-2 text-sm">Sign in to reserve your Delicious Spam Musubi</p>
           </div>
           <div className="border-t border-white/10 mb-6" />
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-400/10 border border-red-400/30 text-red-400 text-sm text-center">
-              {error}
-            </div>
-          )}
+          
           <button
             onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-amber-400 hover:bg-amber-300 text-black font-bold py-3 px-4 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-amber-400/30 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
+            className="w-full flex items-center justify-center gap-3 bg-amber-400 hover:bg-amber-300 text-black font-bold py-3 px-4 rounded-xl transition-all duration-200 hover:scale-105"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -102,8 +35,18 @@ export default function Login() {
               <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {loading ? "Redirecting..." : "Sign in with Google"}
+            Sign in with Google
           </button>
+          
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => window.location.href = "/emaillogin"}
+              className="text-white/40 text-sm hover:text-amber-400 transition-all"
+            >
+              Sign in with Email instead →
+            </button>
+          </div>
+          
           <div className="mt-6 text-center text-white/30 text-xs">
             <p>Only USTP students and staff may order</p>
           </div>
