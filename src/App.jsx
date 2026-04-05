@@ -15,10 +15,11 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for redirect result (for fallback)
+    // Check for redirect result (important for mobile)
     getRedirectResult(auth).then((result) => {
       if (result) {
         const user = result.user
+        console.log("Redirect login success:", user.email)
         if (user.email === ADMIN_EMAIL) {
           navigate("/admin-spammusubi", { replace: true })
         } else {
@@ -27,11 +28,20 @@ function App() {
       }
     }).catch(console.error)
 
-    // Listen for auth state
+    // Listen for auth state (for popup on desktop)
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        console.log("Auth state changed:", user.email)
         const userRef = doc(db, "users", user.uid)
         setDoc(userRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true })
+        
+        // Only redirect if not already on target page
+        const path = window.location.pathname
+        if (user.email === ADMIN_EMAIL && path !== "/admin-spammusubi") {
+          navigate("/admin-spammusubi", { replace: true })
+        } else if (user.email !== ADMIN_EMAIL && path !== "/dashboard") {
+          navigate("/dashboard", { replace: true })
+        }
       }
       setLoading(false)
     })
@@ -39,7 +49,11 @@ function App() {
   }, [navigate])
 
   if (loading) {
-    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        Loading...
+      </div>
+    )
   }
 
   return (

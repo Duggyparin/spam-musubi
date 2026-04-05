@@ -1,6 +1,6 @@
-import { signInWithPopup, GoogleAuthProvider, signInWithRedirect } from "firebase/auth"
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "firebase/auth"
 import { auth } from "../firebase/firebase"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import BrowserRedirect from "../components/BrowserRedirect"
 
@@ -9,40 +9,66 @@ const provider = new GoogleAuthProvider()
 
 export default function Login() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [useRedirect, setUseRedirect] = useState(false)
 
-  const handleGoogleLogin = async () => {
+  // Check if already logged in via redirect result
+  useEffect(() => {
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result) {
+          const user = result.user
+          if (user.email === ADMIN_EMAIL) {
+            navigate("/admin-spammusubi", { replace: true })
+          } else {
+            navigate("/dashboard", { replace: true })
+          }
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    checkRedirect()
+  }, [navigate])
+
+  // Detect if on mobile
+  const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
+
+  const handleGoogleLogin = () => {
     setLoading(true)
     setError(null)
     
-    if (useRedirect) {
-      // Fallback: use redirect
+    if (isMobile) {
+      // Mobile: use redirect (no popup issues)
       signInWithRedirect(auth, provider)
-      return
+    } else {
+      // Desktop: use popup
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user
+          if (user.email === ADMIN_EMAIL) {
+            navigate("/admin-spammusubi", { replace: true })
+          } else {
+            navigate("/dashboard", { replace: true })
+          }
+        })
+        .catch((error) => {
+          console.error(error)
+          setError(error.message)
+          setLoading(false)
+        })
     }
-    
-    try {
-      const result = await signInWithPopup(auth, provider)
-      const user = result.user
-      if (user.email === ADMIN_EMAIL) {
-        navigate("/admin-spammusubi", { replace: true })
-      } else {
-        navigate("/dashboard", { replace: true })
-      }
-    } catch (error) {
-      console.error("Popup error:", error.code)
-      if (error.code === "auth/popup-blocked") {
-        setError("Popup blocked. Click below to sign in with redirect.")
-        setUseRedirect(true)
-      } else if (error.code === "auth/popup-closed-by-user") {
-        setError("Sign in cancelled – you closed the popup.")
-      } else {
-        setError("Sign in failed. Please try again.")
-      }
-      setLoading(false)
-    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        Loading...
+      </div>
+    )
   }
 
   return (
@@ -76,13 +102,8 @@ export default function Login() {
               <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {loading ? "Signing in..." : "Sign in with Google"}
+            {loading ? "Redirecting..." : "Sign in with Google"}
           </button>
-          {useRedirect && (
-            <p className="text-white/40 text-xs mt-3 text-center">
-              If popup doesn't work, your browser may be blocking it.
-            </p>
-          )}
           <div className="mt-6 text-center text-white/30 text-xs">
             <p>Only USTP students and staff may order</p>
           </div>
