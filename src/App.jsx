@@ -13,28 +13,38 @@ const ADMIN_EMAIL = "monsanto.bryann@gmail.com"
 // This component handles the redirect after Google sign-in
 function AuthHandler() {
   const navigate = useNavigate()
+  const [processed, setProcessed] = useState(false)
 
   useEffect(() => {
+    if (processed) return
+
     const handleRedirect = async () => {
       try {
+        console.log("AuthHandler: Checking redirect result...")
         const result = await getRedirectResult(auth)
+        console.log("Redirect result:", result)
+        
         if (result) {
           const user = result.user
+          console.log("User found:", user.email)
           if (user.email === ADMIN_EMAIL) {
             navigate("/admin-spammusubi", { replace: true })
           } else {
             navigate("/dashboard", { replace: true })
           }
         } else {
+          console.log("No redirect result, going to login")
           navigate("/login", { replace: true })
         }
       } catch (error) {
         console.error("Redirect error:", error)
         navigate("/login", { replace: true })
       }
+      setProcessed(true)
     }
+    
     handleRedirect()
-  }, [navigate])
+  }, [navigate, processed])
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center text-white">
