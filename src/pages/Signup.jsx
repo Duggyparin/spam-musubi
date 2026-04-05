@@ -8,6 +8,8 @@ export default function Signup() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
@@ -31,6 +33,7 @@ export default function Signup() {
     
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      // Send verification email
       await sendEmailVerification(userCredential.user)
       setSuccess(true)
     } catch (err) {
@@ -87,22 +90,42 @@ export default function Signup() {
             className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
             required
           />
-          <input
-            type="password"
-            placeholder="Password (min 6 characters)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
-            required
-          />
+          
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password (min 6 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white pr-12"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
+          
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white pr-12"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+            >
+              {showConfirmPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
           
           {error && (
             <div className="text-red-400 text-sm text-center">{error}</div>

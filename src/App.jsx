@@ -5,7 +5,8 @@ import { auth, db } from "./firebase/firebase"
 import { onAuthStateChanged } from "firebase/auth"
 import Landing from './pages/Landing'
 import Login from './pages/Login'
-import Signup from './pages/Signup'  // 👈 ADD THIS
+import Signup from './pages/Signup'
+import VerifyEmail from './pages/VerifyEmail'   // 👈 ADD THIS
 import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
 
@@ -46,7 +47,8 @@ function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />  {/* 👈 ADD THIS LINE */}
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />   {/* 👈 ADD THIS ROUTE */}
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/admin-spammusubi" element={<Admin />} />
     </Routes>

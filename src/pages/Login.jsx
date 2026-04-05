@@ -1,4 +1,4 @@
-import { signInWithEmailAndPassword } from "firebase/auth"
+import { signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth"
 import { auth } from "../firebase/firebase"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -10,8 +10,10 @@ export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [resending, setResending] = useState(false)
 
   const handleEmailLogin = async (e) => {
     e.preventDefault()
@@ -21,7 +23,6 @@ export default function Login() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       
-      // Check if email is verified
       if (!user.emailVerified) {
         setError("Please verify your email first. Check your inbox for the verification link.")
         setLoading(false)
@@ -39,10 +40,34 @@ export default function Login() {
         setError("No account found with this email. Please sign up first.")
       } else if (err.code === "auth/wrong-password") {
         setError("Incorrect password")
+      } else if (err.code === "auth/invalid-credential") {
+        setError("Invalid email or password")
       } else {
         setError(err.message)
       }
       setLoading(false)
+    }
+  }
+
+  const resendVerificationEmail = async () => {
+    setResending(true)
+    setError("")
+    try {
+      // Sign in again to get the user object (only if password is provided)
+      if (!email || !password) {
+        setError("Please enter your email and password first.")
+        setResending(false)
+        return
+      }
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user
+      await sendEmailVerification(user)
+      setError("Verification email resent! Please check your inbox.")
+    } catch (err) {
+      console.error(err)
+      setError("Failed to resend. Please try again.")
+    } finally {
+      setResending(false)
     }
   }
 
@@ -72,14 +97,24 @@ export default function Login() {
               className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
               required
             />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white"
-              required
-            />
+            
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white pr-12"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
             
             {error && (
               <div className="text-red-400 text-sm text-center">{error}</div>
@@ -93,6 +128,17 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
+          
+          {/* Resend verification button (only shown when error mentions verification) */}
+          {error && error.includes("verify your email") && (
+            <button
+              onClick={resendVerificationEmail}
+              disabled={resending}
+              className="w-full mt-2 text-amber-400 text-sm hover:text-amber-300 transition-all"
+            >
+              {resending ? "Sending..." : "Resend verification email"}
+            </button>
+          )}
           
           <div className="text-center mt-4">
             <button
