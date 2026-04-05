@@ -14,26 +14,39 @@ export default function Signup() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
+  // Password strength validation
+  const validatePassword = (pwd) => {
+    const errors = []
+    if (pwd.length < 8) errors.push("at least 8 characters")
+    if (!/[A-Z]/.test(pwd)) errors.push("one uppercase letter")
+    if (!/[a-z]/.test(pwd)) errors.push("one lowercase letter")
+    if (!/[0-9]/.test(pwd)) errors.push("one number")
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) errors.push("one special character (!@#$%^&*)")
+    return errors
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError("")
     
+    // Check password match
     if (password !== confirmPassword) {
       setError("Passwords do not match")
       setLoading(false)
       return
     }
     
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
+    // Validate password strength
+    const passwordErrors = validatePassword(password)
+    if (passwordErrors.length > 0) {
+      setError(`Password must contain: ${passwordErrors.join(", ")}`)
       setLoading(false)
       return
     }
     
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      // Send verification email
       await sendEmailVerification(userCredential.user)
       setSuccess(true)
     } catch (err) {
@@ -42,6 +55,8 @@ export default function Signup() {
         setError("Email already registered. Please sign in instead.")
       } else if (err.code === "auth/invalid-email") {
         setError("Invalid email address")
+      } else if (err.code === "auth/weak-password") {
+        setError("Password is too weak. Please choose a stronger password.")
       } else {
         setError(err.message)
       }
@@ -94,7 +109,7 @@ export default function Signup() {
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Password (min 6 characters)"
+              placeholder="Password (min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white pr-12"
