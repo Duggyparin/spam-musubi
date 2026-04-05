@@ -1,4 +1,4 @@
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth"
+import { signInWithPopup, GoogleAuthProvider, signInWithRedirect } from "firebase/auth"
 import { auth } from "../firebase/firebase"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -11,10 +11,18 @@ export default function Login() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [useRedirect, setUseRedirect] = useState(false)
 
   const handleGoogleLogin = async () => {
     setLoading(true)
     setError(null)
+    
+    if (useRedirect) {
+      // Fallback: use redirect
+      signInWithRedirect(auth, provider)
+      return
+    }
+    
     try {
       const result = await signInWithPopup(auth, provider)
       const user = result.user
@@ -24,13 +32,12 @@ export default function Login() {
         navigate("/dashboard", { replace: true })
       }
     } catch (error) {
-      console.error("Popup error:", error.code, error.message)
+      console.error("Popup error:", error.code)
       if (error.code === "auth/popup-blocked") {
-        setError("Popup was blocked. Please allow popups for this site and try again.")
+        setError("Popup blocked. Click below to sign in with redirect.")
+        setUseRedirect(true)
       } else if (error.code === "auth/popup-closed-by-user") {
         setError("Sign in cancelled – you closed the popup.")
-      } else if (error.code === "auth/unauthorized-domain") {
-        setError("This domain is not authorized. Please contact support.")
       } else {
         setError("Sign in failed. Please try again.")
       }
@@ -71,6 +78,11 @@ export default function Login() {
             </svg>
             {loading ? "Signing in..." : "Sign in with Google"}
           </button>
+          {useRedirect && (
+            <p className="text-white/40 text-xs mt-3 text-center">
+              If popup doesn't work, your browser may be blocking it.
+            </p>
+          )}
           <div className="mt-6 text-center text-white/30 text-xs">
             <p>Only USTP students and staff may order</p>
           </div>
