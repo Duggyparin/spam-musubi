@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const ADMIN_UID = "Ptyo15VS93VJxT4PS6POmwpQQfC2";
@@ -36,7 +36,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
   const otherUserId = userId;
 
-  // Helper: format last seen time
   const formatLastSeen = (lastSeenISO) => {
     if (!lastSeenISO) return "Recently";
     const lastSeen = new Date(lastSeenISO);
@@ -45,14 +44,12 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
     if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   };
 
-  // Fetch admin's profile (for customer view)
   useEffect(() => {
     const fetchAdminData = async () => {
       const adminDoc = await getDoc(doc(db, "users", ADMIN_UID));
@@ -64,7 +61,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchAdminData();
   }, []);
 
-  // Real‑time listener for other user's online status and lastSeen
   useEffect(() => {
     if (!otherUserId) return;
     const userStatusRef = doc(db, "users", otherUserId);
@@ -81,22 +77,27 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return unsubscribe;
   }, [otherUserId]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Real‑time messages
+  // ========== REAL-TIME MESSAGES (fixed) ==========
   useEffect(() => {
     if (!otherUserId) return;
     const messagesRef = collection(db, "chats", otherUserId, "messages");
     const q = query(messagesRef, orderBy("timestamp", "asc"));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setMessages(msgs);
-    });
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`📨 Messages loaded for ${isAdmin ? 'admin' : 'customer'}:`, msgs.length);
+        setMessages(msgs);
+      },
+      (error) => {
+        console.error("Chat listener error:", error);
+      }
+    );
     return unsubscribe;
-  }, [otherUserId]);
+  }, [otherUserId, isAdmin]);
 
   // Mark messages as read when chat opens
   useEffect(() => {
@@ -118,7 +119,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     markMessagesAsRead();
   }, [otherUserId, isAdmin]);
 
-  // Last read timestamp from localStorage (for "New Messages" separator)
+  // Last read timestamp from localStorage
   useEffect(() => {
     const key = `lastRead_${otherUserId}`;
     const stored = localStorage.getItem(key);
@@ -126,7 +127,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     else setLastReadTimestamp(new Date().toISOString());
   }, [otherUserId]);
 
-  // Show "New Messages" separator when new messages arrive after last read
   useEffect(() => {
     if (!lastReadTimestamp || messages.length === 0) return;
     const latestMessageTime = messages[messages.length - 1]?.timestamp;
@@ -144,7 +144,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  // Detect when user scrolls to bottom to mark as read
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
@@ -156,7 +155,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [messages]);
 
-  // Fetch customer details (for admin view)
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
     const fetchUserDetails = async () => {
@@ -191,7 +189,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
         fromUid: senderId,
         toUid: recipientId,
-        timestamp: new Date().toISOString(),
+        timestamp: serverTimestamp(), // ✅ Firestore Timestamp
         read: false
       };
       await addDoc(collection(db, "chats", recipientId, "messages"), messageData);
@@ -210,7 +208,10 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     const groups = {};
     messages.forEach(msg => {
       if (!msg.timestamp) return;
-      const date = new Date(msg.timestamp).toLocaleDateString();
+      let dateObj;
+      if (msg.timestamp.toDate) dateObj = msg.timestamp.toDate();
+      else dateObj = new Date(msg.timestamp);
+      const date = dateObj.toLocaleDateString();
       if (!groups[date]) groups[date] = [];
       groups[date].push(msg);
     });
@@ -221,14 +222,17 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const hasMessages = Object.keys(messageGroups).length > 0;
 
   const otherName = isAdmin ? userName : (adminData?.fullName || "Owner");
-  const otherEmail = isAdmin ? userEmail : ADMIN_EMAIL;
   let avatarToShow = isAdmin ? otherUserAvatar : (adminData?.avatarUrl || DEFAULT_ADMIN_AVATAR);
 
-  // Find index where new messages start (if separator needed)
   let newMessagesStartIndex = -1;
   if (showNewSeparator && lastReadTimestamp) {
     for (let i = 0; i < messages.length; i++) {
-      if (messages[i].timestamp > lastReadTimestamp) {
+      let msgTime = messages[i].timestamp;
+      if (!msgTime) continue;
+      let msgTimeStr;
+      if (msgTime.toDate) msgTimeStr = msgTime.toDate().toISOString();
+      else msgTimeStr = msgTime;
+      if (msgTimeStr > lastReadTimestamp) {
         newMessagesStartIndex = i;
         break;
       }
@@ -238,30 +242,22 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md flex flex-col h-[600px]">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Avatar name={otherName} imageUrl={avatarToShow} />
             <div>
               <h3 className="font-black text-white">{otherName}</h3>
               <p className="text-white/40 text-xs">
-                {otherUserOnline ? (
-                  <span className="text-green-400">● Online</span>
-                ) : (
-                  <span>Last seen {formatLastSeen(otherUserLastSeen)}</span>
-                )}
+                {otherUserOnline ? <span className="text-green-400">● Online</span> : <span>Last seen {formatLastSeen(otherUserLastSeen)}</span>}
               </p>
               {isAdmin && customerPhone && (
-                <a href={`tel:${customerPhone}`} className="text-xs text-green-400 hover:text-green-300 block mt-1">
-                  📞 {customerPhone}
-                </a>
+                <a href={`tel:${customerPhone}`} className="text-xs text-green-400 hover:text-green-300 block mt-1">📞 {customerPhone}</a>
               )}
             </div>
           </div>
           <button onClick={() => { markAsReadAndUpdate(); onClose(); }} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
-        {/* Messages */}
         <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {!hasMessages ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
@@ -280,7 +276,12 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
                 for (const msg of msgs) {
                   const isMyMessage = (isAdmin && msg.sender === "admin") || (!isAdmin && msg.sender === "customer");
                   let timeStr = "";
-                  try { timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch(e) {}
+                  try {
+                    let dateObj;
+                    if (msg.timestamp?.toDate) dateObj = msg.timestamp.toDate();
+                    else dateObj = new Date(msg.timestamp);
+                    timeStr = dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  } catch(e) {}
                   if (showNewSeparator && msgIndex === newMessagesStartIndex) {
                     elements.push(
                       <div key={`new-sep-${msg.id}`} className="relative my-4">
@@ -310,7 +311,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"

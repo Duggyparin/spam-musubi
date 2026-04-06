@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+
+const ADMIN_UID = "Ptyo15VS93VJxT4PS6POmwpQQfC2";
 
 const NotificationBell = ({ onOpenChat }) => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -12,75 +14,78 @@ const NotificationBell = ({ onOpenChat }) => {
   useEffect(() => {
     if (!currentUser) return;
 
-    const fetchUnreadMessages = async () => {
-      try {
-        let totalUnread = 0;
-        const unreadList = [];
+    let unsubscribe = null;
 
-        // Get all reservations to find customer IDs (for admin)
-        const reservationsSnap = await getDocs(collection(db, "reservations"));
-        const userIds = [...new Set(reservationsSnap.docs.map(doc => doc.data().userId))];
-        
-        const userIdsToCheck = isAdmin ? userIds : [currentUser.uid];
-        
-        for (const uid of userIdsToCheck) {
-          try {
-            const messagesRef = collection(db, "chats", uid, "messages");
-            const messagesSnap = await getDocs(messagesRef);
-            
-            messagesSnap.forEach((msgDoc) => {
-              const msgData = msgDoc.data();
-              
-              // Admin sees unread from customers; customer sees unread from admin
-              const shouldShow = isAdmin 
-                ? msgData.sender === "customer" && msgData.read === false
-                : msgData.sender === "admin" && msgData.read === false;
-              
-              if (shouldShow) {
-                totalUnread++;
-                unreadList.push({
-                  id: msgDoc.id,
-                  text: msgData.text,
-                  senderName: msgData.senderName,
-                  sender: msgData.sender,
-                  timestamp: msgData.timestamp,
-                  fromUserId: uid
-                });
-              }
-            });
-          } catch (e) {
-            // Chat collection doesn't exist for this user - ignore
-          }
-        }
-        
-        setUnreadCount(totalUnread);
+    if (isAdmin) {
+      // Admin: listen to all messages under admin's UID where sender is customer and read == false
+      const messagesRef = collection(db, "chats", ADMIN_UID, "messages");
+      const q = query(messagesRef, where("read", "==", false), where("sender", "==", "customer"));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const unreadList = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          unreadList.push({
+            id: doc.id,
+            text: data.text,
+            senderName: data.senderName,
+            sender: data.sender,
+            timestamp: data.timestamp,
+            fromUserId: data.fromUid, // customer UID
+          });
+        });
+        setUnreadCount(unreadList.length);
         setNotifications(unreadList.slice(0, 5));
-      } catch (error) {
-        console.error("Error fetching unread messages:", error);
-      }
+      }, (error) => {
+        console.error("Admin notification listener error:", error);
+      });
+    } else {
+      // Customer: listen to messages from admin that are unread
+      const messagesRef = collection(db, "chats", currentUser.uid, "messages");
+      const q = query(messagesRef, where("read", "==", false), where("sender", "==", "admin"));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const unreadList = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          unreadList.push({
+            id: doc.id,
+            text: data.text,
+            senderName: data.senderName,
+            sender: data.sender,
+            timestamp: data.timestamp,
+            fromUserId: data.fromUid,
+          });
+        });
+        setUnreadCount(unreadList.length);
+        setNotifications(unreadList.slice(0, 5));
+      }, (error) => {
+        console.error("Customer notification listener error:", error);
+      });
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
     };
-    
-    fetchUnreadMessages();
-    
-    // Refresh every 10 seconds
-    const interval = setInterval(fetchUnreadMessages, 10000);
-    return () => clearInterval(interval);
   }, [currentUser, isAdmin]);
 
   const markAsRead = async (notificationId, fromUserId) => {
+    // We don't need to manually update Firestore because the onSnapshot will re-run.
+    // But we must actually mark it as read. We'll call the update via the original reference.
+    // However, the listener already listens to "read == false", so when we update, the item will disappear.
+    // We'll use a Firestore update (you can also call a function from the parent)
+    // Since we have the full doc reference, we can update it.
     try {
-      const messageRef = doc(db, "chats", fromUserId, "messages", notificationId);
-      await updateDoc(messageRef, { read: true });
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      const docRef = isAdmin 
+        ? doc(db, "chats", ADMIN_UID, "messages", notificationId)
+        : doc(db, "chats", currentUser.uid, "messages", notificationId);
+      await updateDoc(docRef, { read: true });
     } catch (error) {
       console.error("Error marking as read:", error);
     }
   };
 
   const markAllAsRead = async () => {
-    for (const notification of notifications) {
-      await markAsRead(notification.id, notification.fromUserId);
+    for (const notif of notifications) {
+      await markAsRead(notif.id, notif.fromUserId);
     }
   };
 
@@ -134,7 +139,7 @@ const NotificationBell = ({ onOpenChat }) => {
                   </p>
                   <p className="text-white/60 text-xs truncate">{notif.text}</p>
                   <p className="text-white/30 text-xs mt-1">
-                    {notif.timestamp ? new Date(notif.timestamp).toLocaleTimeString() : "Just now"}
+                    {notif.timestamp?.toDate ? notif.timestamp.toDate().toLocaleTimeString() : "Just now"}
                   </p>
                 </div>
               ))
@@ -144,7 +149,7 @@ const NotificationBell = ({ onOpenChat }) => {
             <button
               onClick={() => {
                 setShowDropdown(false);
-                if (onOpenChat) onOpenChat(null); // optional: open chat list without selecting a specific user
+                if (onOpenChat) onOpenChat(null);
               }}
               className="w-full text-center text-xs text-amber-400 hover:text-amber-300"
             >
