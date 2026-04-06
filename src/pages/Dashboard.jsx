@@ -1431,9 +1431,16 @@ useEffect(() => {
     <div className="flex items-center gap-3">
       <span className="text-2xl">🍱</span>
       <div className="relative">
-        <button onClick={() => setShowChatList(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
-          💬 Message The Owner
-        </button>
+        <div className="relative">
+  <button onClick={() => setShowChatList(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
+    💬
+  </button>
+  {unreadCustomerCount > 0 && (
+    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+      {unreadCustomerCount > 9 ? "9+" : unreadCustomerCount}
+    </span>
+  )}
+</div>
         {unreadCustomerCount > 0 && (
           <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
             {unreadCustomerCount > 9 ? "9+" : unreadCustomerCount}
