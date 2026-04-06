@@ -66,19 +66,15 @@ export default function Login() {
 
   // Google Sign-In (redirect – best for mobile)
   const handleGoogleSignIn = async () => {
-    setLoading(true)
-    setError("")
-    try {
-      const provider = new GoogleAuthProvider()
-      await signInWithRedirect(auth, provider)
-      // The user will be redirected to Google, then back to your app.
-      // After redirect, onAuthStateChanged in App.jsx will handle navigation.
-    } catch (err) {
-      console.error("Google redirect error:", err)
-      setError("Could not start Google sign‑in. Please try again.")
-      setLoading(false)
-    }
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithRedirect(auth, provider);
+    // No further code – the redirect will happen and App.jsx will handle it
+  } catch (err) {
+    console.error("Google sign-in error:", err);
+    alert("Google sign-in failed: " + err.message);
   }
+};
 
   const handleForgotPassword = async () => {
     if (!email) {

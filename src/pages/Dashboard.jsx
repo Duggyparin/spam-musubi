@@ -947,29 +947,29 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (u) => {
-      if (u) {
-        setUser(u);
-        const userDoc = await getDoc(doc(db, "users", u.uid));
-        if (userDoc.exists()) setUserProfile(userDoc.data());
-        
-        const saved = loadSavedFormData();
-        if (saved) {
-          setForm(prev => ({
-            ...prev,
-            fullName: u.displayName || saved.fullName || "",
-            ...saved,
-          }));
-          if (saved.department === 'others') setShowCustomDepartment(true);
-        } else {
-          setForm(prev => ({ ...prev, fullName: u.displayName || "" }));
-        }
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    setUser(currentUser);
+    const loadUserData = async () => {
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (userDoc.exists()) setUserProfile(userDoc.data());
+      
+      const saved = loadSavedFormData();
+      if (saved) {
+        setForm(prev => ({
+          ...prev,
+          fullName: currentUser.displayName || saved.fullName || "",
+          ...saved,
+        }));
+        if (saved.department === 'others') setShowCustomDepartment(true);
       } else {
-        navigate("/login");
+        setForm(prev => ({ ...prev, fullName: currentUser.displayName || "" }));
       }
-    });
-    return unsubscribe;
-  }, [navigate]);
+    };
+    loadUserData();
+  }
+  // No else – no redirect. The route is already protected by App.jsx.
+}, []);
 
   useEffect(() => {
     const fetchSoldOutStatus = async () => {
