@@ -48,7 +48,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   };
 
-  // Fetch admin data by email (no hardcoded UID)
+  // Dynamic admin data fetch by email (no hardcoded UID)
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
@@ -67,7 +67,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchAdminData();
   }, []);
 
-  // Real-time online status for other user
   useEffect(() => {
     if (!otherUserId) return;
     const userStatusRef = doc(db, "users", otherUserId);
@@ -138,7 +137,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     markMessagesAsRead();
   }, [conversationId, isAdmin]);
 
-  // Fetch customer details (for admin)
+  // Fetch customer details (phone) for admin
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
     const fetchUserDetails = async () => {

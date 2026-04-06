@@ -379,6 +379,27 @@ const ProfileModal = ({ onClose, onProfileUpdate }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Online/offline presence for customers
+useEffect(() => {
+  if (!user) return;
+  const userStatusRef = doc(db, "users", user.uid);
+  const updateOnlineStatus = async () => {
+    await setDoc(userStatusRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true });
+  };
+  updateOnlineStatus();
+  const handleBeforeUnload = () => {
+    setDoc(userStatusRef, { online: false, lastSeen: new Date().toISOString() }, { merge: true });
+  };
+  window.addEventListener("beforeunload", handleBeforeUnload);
+  return () => {
+    setDoc(userStatusRef, { online: false, lastSeen: new Date().toISOString() }, { merge: true });
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+  };
+}, [user]);
+
+
+
+
   const getOrderAge = (createdAt) => {
     if (!createdAt) return 0;
     const created = new Date(createdAt);
@@ -2003,15 +2024,6 @@ useEffect(() => {
             orderDetails={pendingOrderData}
           />
         )}
-
-        {user?.email === "monsanto.bryann@gmail.com" && (
-  <button
-    onClick={migrateOldChats}
-    className="fixed bottom-20 right-4 bg-red-600 text-white px-4 py-2 rounded-full z-50 shadow-lg text-sm font-bold"
-  >
-    🗄️ Migrate Old Chats
-  </button>
-)}
       </div>
     </div>
   );

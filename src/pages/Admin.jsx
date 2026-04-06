@@ -188,6 +188,92 @@ export default function Admin() {
   const { toasts, addToast, removeToast } = useToast();
   const [openChatUserId, setOpenChatUserId] = useState(null);
 
+  // ========== ADMIN PROFILE STATE ==========
+  const [showAdminProfile, setShowAdminProfile] = useState(false);
+  const [adminProfile, setAdminProfile] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const CLOUD_NAME = "dvbbusgra";
+  const UPLOAD_PRESET = "spam_musubi_preset";
+
+  // ========== FETCH ADMIN PROFILE ==========
+  const fetchAdminProfile = async () => {
+    if (!user) return;
+    try {
+      const adminDoc = await getDoc(doc(db, "users", user.uid));
+      if (adminDoc.exists()) {
+        setAdminProfile(adminDoc.data());
+      } else {
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          fullName: "Admin",
+          avatarUrl: null,
+          online: true,
+          lastSeen: new Date().toISOString(),
+        });
+        setAdminProfile({ fullName: "Admin", avatarUrl: null });
+      }
+    } catch (error) {
+      console.error("Error fetching admin profile:", error);
+    }
+  };
+
+  // ========== UPLOAD ADMIN AVATAR ==========
+  const uploadAdminAvatar = () => {
+    if (!window.cloudinary) {
+      alert("Cloudinary widget not loaded. Refresh the page.");
+      return;
+    }
+    setUploadingAvatar(true);
+    window.cloudinary.openUploadWidget(
+      {
+        cloudName: CLOUD_NAME,
+        uploadPreset: UPLOAD_PRESET,
+        sources: ["local", "camera"],
+        cropping: true,
+        multiple: false,
+        maxFileSize: 5000000,
+      },
+      async (error, result) => {
+        setUploadingAvatar(false);
+        if (error) {
+          console.error(error);
+          alert("Upload failed.");
+          return;
+        }
+        if (result && result.event === "success") {
+          const imageUrl = result.info.secure_url;
+          try {
+            await updateDoc(doc(db, "users", user.uid), { avatarUrl: imageUrl });
+            setAdminProfile(prev => ({ ...prev, avatarUrl: imageUrl }));
+            addToast("Avatar updated!", "success", "🖼️");
+          } catch (err) {
+            console.error(err);
+            alert("Failed to save avatar URL.");
+          }
+        }
+      }
+    );
+  };
+
+  // ========== ONLINE / OFFLINE PRESENCE ==========
+  useEffect(() => {
+    if (!user) return;
+    const userStatusRef = doc(db, "users", user.uid);
+    const updateOnlineStatus = async () => {
+      await setDoc(userStatusRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true });
+    };
+    updateOnlineStatus();
+    const handleBeforeUnload = () => {
+      setDoc(userStatusRef, { online: false, lastSeen: new Date().toISOString() }, { merge: true });
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      setDoc(userStatusRef, { online: false, lastSeen: new Date().toISOString() }, { merge: true });
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user]);
+
+  // ========== AUTH STATE & INITIAL FETCH ==========
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (u) => {
       setUser(u);
@@ -196,6 +282,7 @@ export default function Admin() {
         await fetchArchives();
         await fetchSoldOutStatus();
         await fetchStockLimitStatus();
+        await fetchAdminProfile(); // <-- load admin profile
       } else if (u) {
         window.location.href = "/dashboard";
       } else {
@@ -628,6 +715,10 @@ export default function Admin() {
   setShowChatList(true);
   setOpenChatUserId(userId);
 }} />
+            {/* 👤 PROFILE BUTTON */}
+            <button onClick={() => setShowAdminProfile(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
+              👤 Profile
+            </button>
             <button onClick={() => auth.signOut()} className="text-xs border border-white/20 px-3 py-1.5 rounded-lg hover:border-red-400/50 hover:text-red-400 transition-all">Sign out</button>
           </div>
         </div>
@@ -1004,6 +1095,39 @@ export default function Admin() {
       {/* Stock Manager Modal */}
       {showStockManager && (
         <StockManager onClose={() => setShowStockManager(false)} />
+      )}
+
+      {/* ========== ADMIN PROFILE MODAL ========== */}
+      {showAdminProfile && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">
+          <div className="bg-[#111] border border-amber-400/30 rounded-2xl w-full max-w-sm p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-black text-amber-400">👤 Admin Profile</h2>
+              <button onClick={() => setShowAdminProfile(false)} className="text-white/40 hover:text-white text-xl">✕</button>
+            </div>
+            <div className="flex flex-col items-center mb-4">
+              <div className="w-24 h-24 rounded-full bg-amber-400/20 flex items-center justify-center text-4xl overflow-hidden">
+                {adminProfile?.avatarUrl ? (
+                  <img src={adminProfile.avatarUrl} alt="Admin" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-amber-400">{user?.email?.[0].toUpperCase() || "A"}</span>
+                )}
+              </div>
+              <button
+                onClick={uploadAdminAvatar}
+                disabled={uploadingAvatar}
+                className="mt-2 text-xs bg-amber-400/20 border border-amber-400/50 text-amber-400 px-3 py-1 rounded-lg hover:bg-amber-400/30 transition-all"
+              >
+                {uploadingAvatar ? "Uploading..." : "Change picture"}
+              </button>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3 mb-4">
+              <p className="text-white/70 text-sm font-medium">Email</p>
+              <p className="text-white text-sm">{user?.email}</p>
+            </div>
+            <button onClick={() => setShowAdminProfile(false)} className="w-full bg-amber-400 text-black font-bold py-2 rounded-lg">Close</button>
+          </div>
+        </div>
       )}
     </div>
   );

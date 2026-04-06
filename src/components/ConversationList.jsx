@@ -4,6 +4,7 @@ import { collection, query, orderBy, getDocs, doc, getDoc, limit, where, onSnaps
 import ChatModal from "./ChatModal";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
+const ADMIN_UID = auth.currentUser?.uid;
 
 const Avatar = ({ name, imageUrl, online }) => {
   if (imageUrl) {
@@ -33,9 +34,11 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
   const currentUser = auth.currentUser;
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
+  // Fetch conversations from the "conversations" collection where the user is a participant
   useEffect(() => {
     if (!currentUser) return;
 
+    // Query conversations where the current user's UID is in the participants array
     const q = query(
       collection(db, "conversations_meta"),
       where("participants", "array-contains", currentUser.uid),
@@ -49,6 +52,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
         if (!otherUserId) continue;
         
+        // Fetch other user's details
         let userName = "User";
         let userEmail = "";
         let avatarUrl = null;
