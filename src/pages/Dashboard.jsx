@@ -1,7 +1,7 @@
 import { auth, db } from "../firebase/firebase";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
-import { addDoc, collection, query, where, orderBy, getDocs, doc, getDoc, updateDoc, setDoc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, query, where, orderBy, getDocs, doc, getDoc, updateDoc, setDoc, writeBatch, serverTimestamp, onSnapshot } from "firebase/firestore";
 import ConversationList from "../components/ConversationList";
 import { getMessaging } from "firebase/messaging";
 import { requestNotificationPermission, onMessageListener } from "../services/notification";
