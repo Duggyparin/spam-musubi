@@ -3,6 +3,7 @@ import { auth } from "../firebase/firebase"
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react"
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com"
 
@@ -64,14 +65,14 @@ export default function Login() {
     }
   }
 
-  // Google Sign-In (redirect – best for mobile)
   const handleGoogleSignIn = async () => {
   try {
     const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
-    // No further code – the redirect will happen and App.jsx will handle it
+    const result = await signInWithPopup(auth, provider);
+    console.log("Popup success:", result.user.email);
+    window.location.replace(result.user.email === ADMIN_EMAIL ? "/admin-spammusubi" : "/dashboard");
   } catch (err) {
-    console.error("Google sign-in error:", err);
+    console.error(err);
     alert("Google sign-in failed: " + err.message);
   }
 };
