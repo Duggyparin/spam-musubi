@@ -67,10 +67,10 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchAdminData();
   }, []);
 
-  // ========== AUTO-CREATE CONVERSATION METADATA ==========
-  useEffect(() => {
-    const ensureConversationExists = async () => {
-      if (!conversationId) return;
+ useEffect(() => {
+  if (!conversationId) return;
+  const initConversation = async () => {
+    try {
       const metaRef = doc(db, "conversations_meta", conversationId);
       const metaSnap = await getDoc(metaRef);
       if (!metaSnap.exists()) {
@@ -79,11 +79,14 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           lastMessage: "",
           lastUpdated: serverTimestamp(),
         });
-        console.log("✅ Auto-created conversation metadata:", conversationId);
+        console.log("✅ Auto-created conversation", conversationId);
       }
-    };
-    ensureConversationExists();
-  }, [conversationId, currentUser.uid, otherUserId]);
+    } catch (err) {
+      console.error("Auto-create failed:", err);
+    }
+  };
+  initConversation();
+}, [conversationId]);
 
   // Real-time online status for other user
   useEffect(() => {
