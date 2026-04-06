@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, writeBatch } from "firebase/firestore";
 
 const NotificationCenter = () => {
   const [notifications, setNotifications] = useState([]);
@@ -24,13 +24,25 @@ const NotificationCenter = () => {
   }, [currentUser]);
 
   const markAsRead = async (id) => {
-    await updateDoc(doc(db, "notifications", id), { read: true });
+    try {
+      await updateDoc(doc(db, "notifications", id), { read: true });
+    } catch (error) {
+      console.error("Error marking as read:", error);
+    }
   };
 
   const markAllAsRead = async () => {
-    for (const n of notifications.filter(n => !n.read)) {
-      await markAsRead(n.id);
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    // Use a batch to update all at once (faster)
+    const batch = writeBatch(db);
+    for (const id of unreadIds) {
+      batch.update(doc(db, "notifications", id), { read: true });
     }
+    await batch.commit();
+    // Optimistic UI update: clear unread count immediately
+    setUnreadCount(0);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   if (!currentUser) return null;
@@ -54,7 +66,9 @@ const NotificationCenter = () => {
           <div className="p-3 border-b border-white/10 flex justify-between items-center">
             <h3 className="text-sm font-bold text-white">Order Updates</h3>
             {unreadCount > 0 && (
-              <button onClick={markAllAsRead} className="text-xs text-amber-400">Mark all read</button>
+              <button onClick={markAllAsRead} className="text-xs text-amber-400 hover:text-amber-300">
+                Mark all read
+              </button>
             )}
           </div>
           <div className="max-h-96 overflow-y-auto">

@@ -49,23 +49,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
         if (!otherUserId) continue;
 
-        // Fetch last message to determine read status
-        const lastMsgQuery = query(
-          collection(db, "conversations", docSnap.id, "messages"),
-          orderBy("timestamp", "desc"),
-          limit(1)
-        );
-        const lastMsgSnap = await getDocs(lastMsgQuery);
-        let lastMessage = data.lastMessage || "";
-        let unread = false;
-        if (!lastMsgSnap.empty) {
-          const lastMsg = lastMsgSnap.docs[0].data();
-          lastMessage = lastMsg.text;
-          // Unread if message is from the other user and read === false
-          const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
-          unread = isFromOther && lastMsg.read === false;
-        }
-
         // Fetch other user's details
         let userName = "User";
         let userEmail = "";
@@ -80,6 +63,33 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
             online = userDoc.data().online === true;
           }
         } catch (e) {}
+
+        // Fetch last message to determine read status
+        let lastMessage = data.lastMessage || "";
+        let unread = false;
+        try {
+          const lastMsgQuery = query(
+            collection(db, "conversations", docSnap.id, "messages"),
+            orderBy("timestamp", "desc"),
+            limit(1)
+          );
+          const lastMsgSnap = await getDocs(lastMsgQuery);
+          if (!lastMsgSnap.empty) {
+            const lastMsg = lastMsgSnap.docs[0].data();
+            lastMessage = lastMsg.text || lastMessage;
+            // Check if last message is from the other user and not read
+            const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
+            // Ensure read is a boolean (convert if needed)
+            const isRead = lastMsg.read === true;
+            unread = isFromOther && !isRead;
+            console.log(`Conversation with ${userName}: unread = ${unread} (sender: ${lastMsg.sender}, read: ${lastMsg.read})`);
+          } else {
+            // No messages yet – not unread
+            unread = false;
+          }
+        } catch (err) {
+          console.error("Error fetching last message:", err);
+        }
 
         convList.push({
           userId: otherUserId,
@@ -140,7 +150,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
                         </p>
                       </div>
                       {conv.unread && (
-                        <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
+                        <div className="w-2.5 h-2.5 bg-amber-400 rounded-full shadow-lg shadow-amber-400/50"></div>
                       )}
                     </div>
                   </button>

@@ -864,8 +864,11 @@ export default function Dashboard() {
   };
 
   const markAllAdminMessagesAsRead = async () => {
-  if (!user || user.email === "monsanto.bryann@gmail.com") return; // only for customers
+  if (!user || user.email === "monsanto.bryann@gmail.com") return;
   try {
+    // Optimistic update: clear badge immediately
+    setUnreadCustomerCount(0);
+
     const metaRef = collection(db, "conversations_meta");
     const q = query(metaRef, where("participants", "array-contains", user.uid));
     const metaSnap = await getDocs(q);
@@ -874,6 +877,7 @@ export default function Dashboard() {
       const messagesRef = collection(db, "conversations", convId, "messages");
       const unreadQuery = query(messagesRef, where("sender", "==", "admin"), where("read", "==", false));
       const unreadSnap = await getDocs(unreadQuery);
+      if (unreadSnap.empty) continue;
       const batch = writeBatch(db);
       unreadSnap.docs.forEach(doc => {
         batch.update(doc.ref, { read: true });
@@ -882,6 +886,19 @@ export default function Dashboard() {
     }
   } catch (error) {
     console.error("Error marking messages as read:", error);
+    // Revert optimistic update by re-fetching the actual unread count
+    const metaRef2 = collection(db, "conversations_meta");
+    const q2 = query(metaRef2, where("participants", "array-contains", user.uid));
+    const metaSnap2 = await getDocs(q2);
+    let total = 0;
+    for (const metaDoc of metaSnap2.docs) {
+      const convId = metaDoc.id;
+      const messagesRef = collection(db, "conversations", convId, "messages");
+      const msgQuery = query(messagesRef, where("read", "==", false), where("sender", "==", "admin"));
+      const msgSnap = await getDocs(msgQuery);
+      total += msgSnap.size;
+    }
+    setUnreadCustomerCount(total);
   }
 };
 
