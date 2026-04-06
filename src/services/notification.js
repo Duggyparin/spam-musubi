@@ -2,7 +2,7 @@
 import { auth, db } from "../firebase/firebase";
 import { doc, setDoc } from "firebase/firestore";
 
-const VAPID_PUBLIC_KEY = "2wkmHaTDkC78b-HZp0Wn4SogGteoaLc2pxXDq5JF_Vw";
+const VAPID_PUBLIC_KEY = "BB0C-It9Vll6GEgkp6dLp_fEM_Y1oaVLv53DdDLuH-wvssUPBS9PXRvhqu0-oIT6GBVTtX3Shblc38syC_zydA0";
 
 export const requestNotificationPermission = async () => {
   try {
