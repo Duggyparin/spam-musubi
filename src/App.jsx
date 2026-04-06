@@ -92,6 +92,10 @@ function App() {
 
   return (
     <Routes>
+      {/* IMPORTANT: Firebase iframe route – must come BEFORE all other routes */}
+      <Route path="/__/auth/*" element={null} />
+      
+      {/* Your existing routes */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
