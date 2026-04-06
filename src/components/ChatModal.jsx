@@ -204,19 +204,20 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  const groupMessagesByDate = () => {
-    const groups = {};
-    messages.forEach(msg => {
-      if (!msg.timestamp) return;
-      let dateObj;
-      if (msg.timestamp.toDate) dateObj = msg.timestamp.toDate();
-      else dateObj = new Date(msg.timestamp);
-      const date = dateObj.toLocaleDateString();
-      if (!groups[date]) groups[date] = [];
-      groups[date].push(msg);
-    });
-    return groups;
-  };
+  
+   const groupMessagesByDate = () => {
+  const groups = {};
+  messages.forEach(msg => {
+    if (!msg.timestamp) return;
+    let dateObj;
+    if (msg.timestamp.toDate) dateObj = msg.timestamp.toDate();
+    else dateObj = new Date(msg.timestamp);
+    const date = dateObj.toLocaleDateString();
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(msg);
+  });
+  return groups;
+};
 
   const messageGroups = groupMessagesByDate();
   const hasMessages = Object.keys(messageGroups).length > 0;
