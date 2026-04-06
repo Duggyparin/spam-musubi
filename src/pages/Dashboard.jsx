@@ -6,6 +6,7 @@ import ConversationList from "../components/ConversationList";
 import { getMessaging } from "firebase/messaging";
 import { requestNotificationPermission, onMessageListener } from "../services/notification";
 import PublicReviews from "../components/PublicReviews";
+import NotificationCenter from "../components/NotificationCenter";
 
 // ----- PRODUCTS -----
 const PRODUCTS = [
@@ -1344,9 +1345,23 @@ useEffect(() => {
         createdAt: new Date().toISOString(),
       };
 
+      
+
       const docRef = await addDoc(collection(db, "reservations"), orderData);
       const orderId = docRef.id;
 
+      // Create notification for customer (move it here)
+await addDoc(collection(db, "notifications"), {
+  userId: user.uid,
+  message: "🍱 Your order has been placed. Please wait for admin confirmation.",
+  read: false,
+  createdAt: serverTimestamp(),
+  type: "order_placed",
+  orderId: orderId,
+})
+
+
+  
       if (paymentMethod === 'gcash') {
         if (!gcashAvailable) {
           addToast("💳 GCash is temporarily unavailable. Please select Cash on Pickup.", "error", "⚠️");
@@ -1473,7 +1488,7 @@ useEffect(() => {
       </div>
     </div>  {/* ← This closes the flex items-center gap-3 div */}
     <div className="flex items-center gap-2">
-      <NotificationBell onOpenChat={(userId) => { setShowChatList(true); setOpenChatUserId(userId); }} />
+      <NotificationCenter />   {/* ← add this line */}
       <button onClick={() => setShowQR(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">🔗 Share</button>
       <button onClick={() => auth.signOut()} className="text-xs border border-white/20 px-3 py-1.5 rounded-lg hover:border-red-400/50 hover:text-red-400 transition-all">Sign out</button>
     </div>

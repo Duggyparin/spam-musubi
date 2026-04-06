@@ -282,7 +282,7 @@ export default function Admin() {
         await fetchArchives();
         await fetchSoldOutStatus();
         await fetchStockLimitStatus();
-        await fetchAdminProfile(); // <-- load admin profile
+        await fetchAdminProfile();
       } else if (u) {
         window.location.href = "/dashboard";
       } else {
@@ -292,47 +292,64 @@ export default function Admin() {
     return unsubscribe;
   }, []);
 
-  // ----- PUSH NOTIFICATIONS -----
+  // ========== PUSH NOTIFICATIONS ==========
   useEffect(() => {
     if (!user) return;
-  
     const initNotifications = async () => {
-     try {
-       await requestNotificationPermission();
-      
-      // Listen for messages when app is in foreground
+      try {
+        await requestNotificationPermission();
         onMessageListener().then((payload) => {
-        console.log("Foreground message:", payload);
-        // Show a toast notification
-        addToast(payload.notification.body, "info", "🔔");
-      });
+          console.log("Foreground message:", payload);
+          addToast(payload.notification.body, "info", "🔔");
+        });
+      } catch (error) {
+        console.error("Notification init error:", error);
+      }
+    };
+    initNotifications();
+  }, [user]);
+
+  // ========== REAL‑TIME UNREAD COUNT FOR ADMIN (CUSTOMER MESSAGES) ==========
+  useEffect(() => {
+    if (!user) return;
+    const metaRef = collection(db, "conversations_meta");
+    const q = query(metaRef, where("participants", "array-contains", user.uid));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      let total = 0;
+      for (const metaDoc of snapshot.docs) {
+        const convId = metaDoc.id;
+        const messagesRef = collection(db, "conversations", convId, "messages");
+        const msgQuery = query(messagesRef, where("sender", "==", "customer"), where("read", "==", false));
+        const msgSnap = await getDocs(msgQuery);
+        total += msgSnap.size;
+      }
+      setAdminUnreadCount(total);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // ========== MARK ALL CUSTOMER MESSAGES AS READ ==========
+  const markAllCustomerMessagesAsRead = async () => {
+    if (!user) return;
+    try {
+      const metaRef = collection(db, "conversations_meta");
+      const q = query(metaRef, where("participants", "array-contains", user.uid));
+      const metaSnap = await getDocs(q);
+      for (const metaDoc of metaSnap.docs) {
+        const convId = metaDoc.id;
+        const messagesRef = collection(db, "conversations", convId, "messages");
+        const unreadQuery = query(messagesRef, where("sender", "==", "customer"), where("read", "==", false));
+        const unreadSnap = await getDocs(unreadQuery);
+        const batch = writeBatch(db);
+        unreadSnap.docs.forEach(doc => {
+          batch.update(doc.ref, { read: true });
+        });
+        await batch.commit();
+      }
     } catch (error) {
-      console.error("Notification init error:", error);
+      console.error("Error marking messages as read:", error);
     }
   };
-
-  // Real‑time unread count for admin (customer messages)
-useEffect(() => {
-  if (!user) return;
-  const metaRef = collection(db, "conversations_meta");
-  const q = query(metaRef, where("participants", "array-contains", user.uid));
-  const unsubscribe = onSnapshot(q, async (snapshot) => {
-    let total = 0;
-    for (const metaDoc of snapshot.docs) {
-      const convId = metaDoc.id;
-      const messagesRef = collection(db, "conversations", convId, "messages");
-      const msgQuery = query(messagesRef, where("sender", "==", "customer"), where("read", "==", false));
-      const msgSnap = await getDocs(msgQuery);
-      total += msgSnap.size;
-    }
-    setAdminUnreadCount(total);
-  });
-  return () => unsubscribe();
-}, [user]);
-
-  
-  initNotifications();
-}, [user]); 
 
   const fetchReservations = async () => {
     setLoading(true);
@@ -582,8 +599,7 @@ useEffect(() => {
               : 'We are so sorry, but we could not accommodate your order this time. We hope to serve you again soon! 🙏',
             pickup_date: reservation.pickupDate,
             pickup_time: `${reservation.pickupSlot} — ${reservation.pickupTime}`,
-          
-            },
+          },
           '9JV0iTFOi-Fb7Mxue'
         );
         addToast(`Email sent to ${reservation.fullName}!`, "success", "📧");
@@ -593,15 +609,25 @@ useEffect(() => {
           for (const item of reservation.items) {
             const productId = item.productId;
             const quantity = item.quantity;
-            
             const stockRef = doc(db, "productStock", productId);
             const stockDoc = await getDoc(stockRef);
             const currentStock = stockDoc.exists() ? stockDoc.data().stock : 0;
             const newStock = Math.max(0, currentStock - quantity);
-            
             await setDoc(stockRef, { stock: newStock }, { merge: true });
             addToast(`📦 ${item.productName} stock updated: ${currentStock} → ${newStock}`, "info", "📦");
           }
+        }
+
+        // ✅ ORDER CONFIRMATION NOTIFICATION (AUTOMATIC) ✅
+        if (status === "confirmed") {
+          await addDoc(collection(db, "notifications"), {
+            userId: reservation.userId,
+            message: `✅ Your order has been confirmed! Please arrive at ${reservation.pickupTime} on ${reservation.pickupDate}.`,
+            read: false,
+            createdAt: serverTimestamp(),
+            type: "order_confirmed",
+            orderId: id,
+          });
         }
       }
       if (status === "completed") {
@@ -709,8 +735,8 @@ useEffect(() => {
       <Toast toasts={toasts} removeToast={removeToast} />
 
       {showPrepSummary && (
-  <PrepSummaryModal reservations={reservations.filter(r => r.status === "confirmed")} onClose={() => setShowPrepSummary(false)} />
-)}
+        <PrepSummaryModal reservations={reservations.filter(r => r.status === "confirmed")} onClose={() => setShowPrepSummary(false)} />
+      )}
 
       <div className="bg-black/80 border-b border-amber-400/20 px-6 py-4 sticky top-0 z-50 backdrop-blur">
         <div className="max-w-5xl mx-auto flex justify-between items-center flex-wrap gap-3">
@@ -731,23 +757,21 @@ useEffect(() => {
             <button onClick={toggleSoldOut} disabled={togglingSoldOut} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isSoldOut ? "bg-red-600 text-white hover:bg-red-700" : "bg-green-600 text-white hover:bg-green-700"}`}>{togglingSoldOut ? "..." : (isSoldOut ? "🚫 SOLD OUT" : "✅ ACCEPTING ORDERS")}</button>
             <button onClick={toggleStockLimit} disabled={togglingStockLimit} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isStockLimit ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-gray-600 text-white hover:bg-gray-700"}`}>{togglingStockLimit ? "..." : (isStockLimit ? "⚠️ STOCK LIMIT" : "📦 STOCK OK")}</button>
             <div className="relative">
-  <button
-    onClick={async () => {
-      await markAllCustomerMessagesAsRead();
-      setShowChatList(true);
-    }}
-    className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all"
-  >
-    💬
-  </button>
-  {adminUnreadCount > 0 && (
-    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-      {adminUnreadCount > 9 ? "9+" : adminUnreadCount}
-    </span>
-  )}
-</div>
-            
-            {/* 👤 PROFILE BUTTON */}
+              <button
+                onClick={async () => {
+                  await markAllCustomerMessagesAsRead();
+                  setShowChatList(true);
+                }}
+                className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all"
+              >
+                💬
+              </button>
+              {adminUnreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {adminUnreadCount > 9 ? "9+" : adminUnreadCount}
+                </span>
+              )}
+            </div>
             <button onClick={() => setShowAdminProfile(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
               👤 Profile
             </button>
@@ -1115,21 +1139,21 @@ useEffect(() => {
 
       {/* Chat Modal */}
       {showChatList && (
-  <ConversationList 
-    onClose={() => { 
-      setShowChatList(false); 
-      setOpenChatUserId(null); 
-    }} 
-    preselectedUserId={openChatUserId} 
-  />
-)}
+        <ConversationList 
+          onClose={() => { 
+            setShowChatList(false); 
+            setOpenChatUserId(null); 
+          }} 
+          preselectedUserId={openChatUserId} 
+        />
+      )}
 
       {/* Stock Manager Modal */}
       {showStockManager && (
         <StockManager onClose={() => setShowStockManager(false)} />
       )}
 
-      {/* ========== ADMIN PROFILE MODAL ========== */}
+      {/* Admin Profile Modal */}
       {showAdminProfile && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">
           <div className="bg-[#111] border border-amber-400/30 rounded-2xl w-full max-w-sm p-6">
