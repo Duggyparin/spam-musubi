@@ -34,31 +34,39 @@ export default function Login() {
     setPersistence(auth, browserLocalPersistence).catch(console.error)
   }, [])
 
-  const handleEmailLogin = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-    setResetMessage("")
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      const user = userCredential.user
-      if (user.email !== ADMIN_EMAIL && !user.emailVerified) {
-        setError("Please verify your email first. Check your inbox and spam folder.")
-        setLoading(false)
-        return
-      }
-      if (user.email === ADMIN_EMAIL) {
-        navigate("/admin-spammusubi")
-      } else {
-        navigate("/dashboard")
-      }
-    } catch (err) {
-      if (err.code === "auth/user-not-found") setError("No account found. Please sign up.")
-      else if (err.code === "auth/wrong-password") setError("Incorrect password")
-      else setError(err.message)
+  // Inside Login component, replace the existing handleEmailLogin with:
+
+const handleEmailLogin = async (e) => {
+  e.preventDefault()
+  setLoading(true)
+  setError("")
+  setResetMessage("")
+  try {
+    await setPersistence(auth, browserLocalPersistence)
+    const userCredential = await signInWithEmailAndPassword(auth, email, password)
+    const user = userCredential.user
+
+    if (user.email !== ADMIN_EMAIL && !user.emailVerified) {
+      setError("Please verify your email first. Check your inbox and spam folder.")
       setLoading(false)
+      return
     }
+
+    // ✅ Use full page reload
+    if (user.email === ADMIN_EMAIL) {
+      window.location.replace("/admin-spammusubi")
+    } else {
+      window.location.replace("/dashboard")
+    }
+  } catch (err) {
+    // Debug alert – shows the exact error on mobile
+    alert(`Login error: ${err.code} – ${err.message}`)
+    if (err.code === "auth/user-not-found") setError("No account found. Please sign up.")
+    else if (err.code === "auth/wrong-password") setError("Incorrect password")
+    else setError(err.message)
+    setLoading(false)
   }
+}
 
   const handleForgotPassword = async () => {
     if (!email) {

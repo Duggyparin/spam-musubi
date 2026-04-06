@@ -1,4 +1,4 @@
-import { Routes, Route, useNavigate } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { doc, setDoc, updateDoc } from "firebase/firestore"
 import { auth, db } from "./firebase/firebase"
@@ -12,26 +12,24 @@ import Admin from './pages/Admin'
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com"
 
 function App() {
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Handle Google redirect result first
+    // Handle redirect result from Google Sign‑In
     getRedirectResult(auth)
       .then((result) => {
         if (result?.user) {
           const user = result.user
           console.log("Redirect login success:", user.email)
+          // ✅ Use full page reload to bypass React Router
           if (user.email === ADMIN_EMAIL) {
-            navigate("/admin-spammusubi", { replace: true })
+            window.location.replace("/admin-spammusubi")
           } else {
-            navigate("/dashboard", { replace: true })
+            window.location.replace("/dashboard")
           }
         }
       })
-      .catch((err) => {
-        console.error("Redirect error:", err)
-      })
+      .catch((err) => console.error("Redirect error:", err))
 
     // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -77,7 +75,7 @@ function App() {
     })
 
     return () => unsubscribe()
-  }, [navigate])
+  }, [])
 
   if (loading) {
     return (
@@ -92,13 +90,15 @@ function App() {
 
   return (
     <Routes>
-  <Route path="/__/auth/*" element={null} />   // MUST be first
-  <Route path="/" element={<Landing />} />
-  <Route path="/login" element={<Login />} />
-  <Route path="/signup" element={<Signup />} />
-  <Route path="/dashboard" element={<Dashboard />} />
-  <Route path="/admin-spammusubi" element={<Admin />} />
-</Routes>
+      {/* ✅ Firebase iframe route – MUST be first */}
+      <Route path="/__/auth/*" element={null} />
+      
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/admin-spammusubi" element={<Admin />} />
+    </Routes>
   )
 }
 
