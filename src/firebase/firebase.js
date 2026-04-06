@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, writeBatch, serverTimestamp } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getStorage } from "firebase/storage";
@@ -22,20 +22,29 @@ export const db = getFirestore(app);
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
 
-// Analytics (only if supported)
+// Analytics
 if (typeof window !== "undefined") {
   isSupported().then(supported => supported && getAnalytics(app)).catch(() => {});
 }
 
-// ========== EXPOSE FIREBASE GLOBALLY FOR CONSOLE DEBUGGING ==========
+// ========== EXPOSE MODULAR HELPERS GLOBALLY ==========
 if (typeof window !== "undefined") {
-  window.firebase = {
+  window.fb = {
     auth,
     db,
-    firestore: db,
-    FieldValue: {
-      serverTimestamp: () => new Date().toISOString() // fallback – actual Firestore timestamp will be used
-    }
+    collection,
+    doc,
+    getDocs,
+    addDoc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where,
+    orderBy,
+    limit,
+    writeBatch,
+    serverTimestamp,
   };
-  console.log("🔥 Firebase exposed globally. You can now use 'firebase' in the console.");
+  console.log("🔥 Firebase modular helpers exposed as window.fb");
 }
