@@ -3,7 +3,6 @@ import { auth, db } from "../firebase/firebase";
 import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
-const ADMIN_UID = "Ptyo15VS93VJxT4PS6POmwpQQfC2";
 const DEFAULT_ADMIN_AVATAR = "https://i.pravatar.cc/150?img=7";
 
 const Avatar = ({ name, imageUrl }) => {
@@ -18,10 +17,7 @@ const Avatar = ({ name, imageUrl }) => {
   );
 };
 
-// Generate a unique conversation ID for two users (sorted UIDs)
-const getConversationId = (uid1, uid2) => {
-  return [uid1, uid2].sort().join('_');
-};
+const getConversationId = (uid1, uid2) => [uid1, uid2].sort().join('_');
 
 const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const [messages, setMessages] = useState([]);
@@ -33,12 +29,9 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const [otherUserOnline, setOtherUserOnline] = useState(false);
   const [otherUserLastSeen, setOtherUserLastSeen] = useState(null);
   const messagesEndRef = useRef(null);
-  
   const currentUser = auth.currentUser;
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
   const otherUserId = userId;
-  
-  // Single conversation ID for both users
   const conversationId = getConversationId(currentUser.uid, otherUserId);
 
   const formatLastSeen = (lastSeenISO) => {
@@ -55,17 +48,26 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   };
 
+  // Fetch admin data by email (no hardcoded UID)
   useEffect(() => {
     const fetchAdminData = async () => {
-      const adminDoc = await getDoc(doc(db, "users", ADMIN_UID));
-      if (adminDoc.exists()) {
-        setAdminData(adminDoc.data());
-        setOtherUserLastSeen(adminDoc.data().lastSeen || null);
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", ADMIN_EMAIL));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const adminDoc = snap.docs[0];
+          setAdminData(adminDoc.data());
+          setOtherUserLastSeen(adminDoc.data().lastSeen || null);
+        }
+      } catch (error) {
+        console.error("Error fetching admin data:", error);
       }
     };
     fetchAdminData();
   }, []);
 
+  // Real-time online status for other user
   useEffect(() => {
     if (!otherUserId) return;
     const userStatusRef = doc(db, "users", otherUserId);
@@ -86,7 +88,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // REAL-TIME MESSAGES from SINGLE conversation document
+  // Real‑time messages from single conversation
   useEffect(() => {
     if (!conversationId) return;
     const messagesRef = collection(db, "conversations", conversationId, "messages");
@@ -109,7 +111,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
             timestamp: timestampDate,
           };
         });
-        console.log("📨 Messages loaded from single conversation:", msgs.length);
         setMessages(msgs);
       },
       (error) => console.error("Chat listener error:", error)
@@ -117,7 +118,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return unsubscribe;
   }, [conversationId]);
 
-  // Mark messages as read when chat opens
+  // Mark messages as read
   useEffect(() => {
     if (!conversationId) return;
     const markMessagesAsRead = async () => {
@@ -137,6 +138,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     markMessagesAsRead();
   }, [conversationId, isAdmin]);
 
+  // Fetch customer details (for admin)
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
     const fetchUserDetails = async () => {

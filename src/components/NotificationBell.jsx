@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import { auth, db } from "../firebase/firebase";
 import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 
-const ADMIN_UID = "Ptyo15VS93VJxT4PS6POmwpQQfC2";
+const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 
 const NotificationBell = ({ onOpenChat }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const currentUser = auth.currentUser;
-  const isAdmin = currentUser?.email === "monsanto.bryann@gmail.com";
+  const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
   useEffect(() => {
     if (!currentUser) return;
@@ -17,8 +17,10 @@ const NotificationBell = ({ onOpenChat }) => {
     let unsubscribe = null;
 
     if (isAdmin) {
-      // Admin: listen to all messages under admin's UID where sender is customer and read == false
-      const messagesRef = collection(db, "chats", ADMIN_UID, "messages");
+      // Admin listens to all messages where sender is customer and read == false
+      // We need to know the admin's UID dynamically
+      const adminUID = currentUser.uid;
+      const messagesRef = collection(db, "chats", adminUID, "messages");
       const q = query(messagesRef, where("read", "==", false), where("sender", "==", "customer"));
       unsubscribe = onSnapshot(q, (snapshot) => {
         const unreadList = [];
@@ -30,16 +32,14 @@ const NotificationBell = ({ onOpenChat }) => {
             senderName: data.senderName,
             sender: data.sender,
             timestamp: data.timestamp,
-            fromUserId: data.fromUid, // customer UID
+            fromUserId: data.fromUid,
           });
         });
         setUnreadCount(unreadList.length);
         setNotifications(unreadList.slice(0, 5));
-      }, (error) => {
-        console.error("Admin notification listener error:", error);
-      });
+      }, (error) => console.error("Admin notification error:", error));
     } else {
-      // Customer: listen to messages from admin that are unread
+      // Customer listens to messages from admin that are unread
       const messagesRef = collection(db, "chats", currentUser.uid, "messages");
       const q = query(messagesRef, where("read", "==", false), where("sender", "==", "admin"));
       unsubscribe = onSnapshot(q, (snapshot) => {
@@ -57,9 +57,7 @@ const NotificationBell = ({ onOpenChat }) => {
         });
         setUnreadCount(unreadList.length);
         setNotifications(unreadList.slice(0, 5));
-      }, (error) => {
-        console.error("Customer notification listener error:", error);
-      });
+      }, (error) => console.error("Customer notification error:", error));
     }
 
     return () => {
@@ -68,14 +66,10 @@ const NotificationBell = ({ onOpenChat }) => {
   }, [currentUser, isAdmin]);
 
   const markAsRead = async (notificationId, fromUserId) => {
-    // We don't need to manually update Firestore because the onSnapshot will re-run.
-    // But we must actually mark it as read. We'll call the update via the original reference.
-    // However, the listener already listens to "read == false", so when we update, the item will disappear.
-    // We'll use a Firestore update (you can also call a function from the parent)
-    // Since we have the full doc reference, we can update it.
     try {
+      const adminUID = currentUser?.uid;
       const docRef = isAdmin 
-        ? doc(db, "chats", ADMIN_UID, "messages", notificationId)
+        ? doc(db, "chats", adminUID, "messages", notificationId)
         : doc(db, "chats", currentUser.uid, "messages", notificationId);
       await updateDoc(docRef, { read: true });
     } catch (error) {
@@ -120,9 +114,7 @@ const NotificationBell = ({ onOpenChat }) => {
           </div>
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-4 text-center text-white/40 text-sm">
-                No new messages
-              </div>
+              <div className="p-4 text-center text-white/40 text-sm">No new messages</div>
             ) : (
               notifications.map((notif) => (
                 <div
