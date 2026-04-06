@@ -863,6 +863,28 @@ export default function Dashboard() {
     }
   };
 
+  const markAllAdminMessagesAsRead = async () => {
+  if (!user || user.email === "monsanto.bryann@gmail.com") return; // only for customers
+  try {
+    const metaRef = collection(db, "conversations_meta");
+    const q = query(metaRef, where("participants", "array-contains", user.uid));
+    const metaSnap = await getDocs(q);
+    for (const metaDoc of metaSnap.docs) {
+      const convId = metaDoc.id;
+      const messagesRef = collection(db, "conversations", convId, "messages");
+      const unreadQuery = query(messagesRef, where("sender", "==", "admin"), where("read", "==", false));
+      const unreadSnap = await getDocs(unreadQuery);
+      const batch = writeBatch(db);
+      unreadSnap.docs.forEach(doc => {
+        batch.update(doc.ref, { read: true });
+      });
+      await batch.commit();
+    }
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+  }
+};
+
   const saveFormData = () => {
     if (!user) return;
     const dataToSave = {
@@ -1426,21 +1448,20 @@ useEffect(() => {
         <Toast toasts={toasts} removeToast={removeToast} />
         {false && <OnboardingTour onComplete={() => { localStorage.setItem("spamMusubiTutorial", "completed"); setShowOnboarding(false); }} onSkip={() => { localStorage.setItem("spamMusubiTutorial", "skipped"); setShowOnboarding(false); }} />}
 
-        <div className="bg-black/80 border-b border-amber-400/20 px-6 py-4 sticky top-0 z-50 backdrop-blur">
+       <div className="bg-black/80 border-b border-amber-400/20 px-6 py-4 sticky top-0 z-50 backdrop-blur">
   <div className="max-w-2xl mx-auto flex justify-between items-center">
     <div className="flex items-center gap-3">
       <span className="text-2xl">🍱</span>
       <div className="relative">
-        <div className="relative">
-  <button onClick={() => setShowChatList(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
-    💬
-  </button>
-  {unreadCustomerCount > 0 && (
-    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-      {unreadCustomerCount > 9 ? "9+" : unreadCustomerCount}
-    </span>
-  )}
-</div>
+        <button
+          onClick={async () => {
+            await markAllAdminMessagesAsRead();
+            setShowChatList(true);
+          }}
+          className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg"
+        >
+          💬
+        </button>
         {unreadCustomerCount > 0 && (
           <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
             {unreadCustomerCount > 9 ? "9+" : unreadCustomerCount}
@@ -1451,7 +1472,7 @@ useEffect(() => {
         <p className="font-black text-amber-400 leading-none">Spam Musubi</p>
         <p className="text-white/40 text-xs">Reserve for tomorrow</p>
       </div>
-    </div>
+    </div>  {/* ← This closes the flex items-center gap-3 div */}
     <div className="flex items-center gap-2">
       <NotificationBell onOpenChat={(userId) => { setShowChatList(true); setOpenChatUserId(userId); }} />
       <button onClick={() => setShowQR(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">🔗 Share</button>
