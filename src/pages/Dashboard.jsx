@@ -1,7 +1,7 @@
 import { auth, db } from "../firebase/firebase";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
-import { addDoc, collection, query, where, orderBy, getDocs, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { addDoc, collection, query, where, orderBy, getDocs, doc, getDoc, updateDoc, setDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 import ConversationList from "../components/ConversationList";
 import { getMessaging } from "firebase/messaging";
 import { requestNotificationPermission, onMessageListener } from "../services/notification";
@@ -860,6 +860,52 @@ export default function Dashboard() {
       console.error("Error refreshing profile:", err);
     }
   };
+
+  // ========== TEMPORARY MIGRATION FUNCTION ==========
+const migrateOldChats = async () => {
+  if (!user) return;
+  const ADMIN_UID = user.uid;
+  console.log("Starting migration for admin UID:", ADMIN_UID);
+  try {
+    const chatsRef = collection(db, "chats");
+    const chatsSnap = await getDocs(chatsRef);
+    const customerUIDs = chatsSnap.docs.map(d => d.id).filter(id => id !== ADMIN_UID);
+    console.log(`Found ${customerUIDs.length} customer conversations.`);
+    for (const customerUID of customerUIDs) {
+      const adminMessagesRef = collection(db, "chats", ADMIN_UID, "messages");
+      const q = query(adminMessagesRef, where("fromUid", "in", [ADMIN_UID, customerUID]), where("toUid", "in", [ADMIN_UID, customerUID]));
+      const messagesSnap = await getDocs(q);
+      if (messagesSnap.empty) continue;
+      const conversationId = [ADMIN_UID, customerUID].sort().join('_');
+      const batch = writeBatch(db);
+      messagesSnap.forEach((msgDoc) => {
+        const msgData = msgDoc.data();
+        const newMsgRef = doc(collection(db, "conversations", conversationId, "messages"));
+        batch.set(newMsgRef, {
+          text: msgData.text,
+          sender: msgData.sender,
+          senderName: msgData.senderName,
+          fromUid: msgData.fromUid,
+          toUid: msgData.toUid,
+          timestamp: msgData.timestamp,
+          read: msgData.read || false,
+        });
+      });
+      await batch.commit();
+      const lastMsg = messagesSnap.docs.sort((a,b) => (b.data().timestamp > a.data().timestamp ? 1 : -1))[0]?.data();
+      await setDoc(doc(db, "conversations_meta", conversationId), {
+        participants: [ADMIN_UID, customerUID],
+        lastMessage: lastMsg?.text || "",
+        lastUpdated: lastMsg?.timestamp || serverTimestamp(),
+      });
+      console.log(`Migrated conversation with ${customerUID}`);
+    }
+    alert("Migration complete! Refresh the page.");
+  } catch (error) {
+    console.error("Migration error:", error);
+    alert("Migration failed. Check console.");
+  }
+};
 
   const saveFormData = () => {
     if (!user) return;
@@ -2003,6 +2049,15 @@ useEffect(() => {
             orderDetails={pendingOrderData}
           />
         )}
+
+        {user?.email === "monsanto.bryann@gmail.com" && (
+  <button
+    onClick={migrateOldChats}
+    className="fixed bottom-20 right-4 bg-red-600 text-white px-4 py-2 rounded-full z-50 shadow-lg text-sm font-bold"
+  >
+    🗄️ Migrate Old Chats
+  </button>
+)}
       </div>
     </div>
   );

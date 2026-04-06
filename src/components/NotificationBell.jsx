@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 
 const ADMIN_UID = "Ptyo15VS93VJxT4PS6POmwpQQfC2";
 
