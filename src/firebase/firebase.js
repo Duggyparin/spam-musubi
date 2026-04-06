@@ -45,7 +45,6 @@ if (typeof window !== "undefined") {
     limit,
     writeBatch,
     serverTimestamp,
-    getDoc,
     getDocs,
   };
   console.log("🔥 Firebase modular helpers exposed as window.fb");
