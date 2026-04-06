@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, query, where, onSnapshot, doc, updateDoc, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 
@@ -13,21 +13,13 @@ const NotificationBell = ({ onOpenChat }) => {
 
   useEffect(() => {
     if (!currentUser) return;
+
     let unsubscribe = null;
 
     if (isAdmin) {
-      // Admin: find all conversations_meta where admin is participant
-      // Then listen to messages in each conversation where sender is customer and read == false
-      // This is complex; simpler: listen to all messages under the admin's own subcollection in the old chats? No.
-      // Better: listen to all conversations_meta, then for each, listen to messages.
-      // But for simplicity, we'll use a different approach: query messages directly from the conversations collection.
-      // Since all messages are stored under conversations/{convId}/messages, we need to query across all conversations.
-      // Firestore doesn't support collection group queries easily. Alternative: use a Cloud Function.
-      // For now, we'll rely on the existing unread count in the UI – the bell will only show unread count from the conversation list.
-      // But to make it work, we'll assume the unread count is derived from the conversation list.
-      // Actually, we can query all conversations_meta where participants include admin, then for each, count unread messages.
-      // This is heavy; we'll implement a simple version that works for the admin:
-      const fetchUnreadCount = async () => {
+      // Admin: listen to all conversations_meta, then fetch unread messages
+      // (we'll keep this simple – polling for now)
+      const fetchUnreadForAdmin = async () => {
         const metaRef = collection(db, "conversations_meta");
         const q = query(metaRef, where("participants", "array-contains", currentUser.uid));
         const metaSnap = await getDocs(q);
@@ -40,36 +32,64 @@ const NotificationBell = ({ onOpenChat }) => {
           const msgSnap = await getDocs(msgQuery);
           totalUnread += msgSnap.size;
           msgSnap.forEach(doc => {
+            unreadList.push({ id: doc.id, text: doc.data().text, senderName: doc.data().senderName, fromUserId: doc.data().fromUid });
+          });
+        }
+        setUnreadCount(totalUnread);
+        setNotifications(unreadList.slice(0, 5));
+      };
+      fetchUnreadForAdmin();
+      const interval = setInterval(fetchUnreadForAdmin, 10000);
+      return () => clearInterval(interval);
+    } else {
+      // Customer: listen to all messages in their own conversations where sender is admin and read == false
+      const messagesRef = collection(db, "conversations_meta");
+      const q = query(messagesRef, where("participants", "array-contains", currentUser.uid));
+      const unsubscribeMeta = onSnapshot(q, async (snapshot) => {
+        let totalUnread = 0;
+        const unreadList = [];
+        for (const metaDoc of snapshot.docs) {
+          const convId = metaDoc.id;
+          const messagesRefConv = collection(db, "conversations", convId, "messages");
+          const msgQuery = query(messagesRefConv, where("read", "==", false), where("sender", "==", "admin"));
+          const msgSnap = await getDocs(msgQuery);
+          totalUnread += msgSnap.size;
+          msgSnap.forEach(doc => {
             unreadList.push({
               id: doc.id,
               text: doc.data().text,
               senderName: doc.data().senderName,
-              sender: doc.data().sender,
-              timestamp: doc.data().timestamp,
               fromUserId: doc.data().fromUid,
             });
           });
         }
         setUnreadCount(totalUnread);
         setNotifications(unreadList.slice(0, 5));
-      };
-      fetchUnreadCount();
-      // Poll every 10 seconds (or use real‑time listener – too heavy)
-      const interval = setInterval(fetchUnreadCount, 10000);
-      return () => clearInterval(interval);
-    } else {
-      // Customer: listen to messages in their own conversations (the same as conversation list)
-      // We'll just rely on the conversation list's unread count.
-      // For simplicity, we can set unread count to 0 for customers (the bell is mainly for admin).
-      setUnreadCount(0);
-      setNotifications([]);
+      });
+      return () => unsubscribeMeta();
     }
   }, [currentUser, isAdmin]);
 
   const markAsRead = async (notificationId, fromUserId) => {
-    // Find the conversation ID and message reference
-    // This is complex; we'll skip for now as the bell is mainly for admin.
-    console.log("Mark as read", notificationId, fromUserId);
+    // Find conversation ID containing this message
+    // This requires additional logic; for simplicity, we'll assume the message ID is unique and we can update it.
+    // We'll implement a more reliable method: iterate through conversations to find the message.
+    try {
+      const metaRef = collection(db, "conversations_meta");
+      const q = query(metaRef, where("participants", "array-contains", currentUser.uid));
+      const metaSnap = await getDocs(q);
+      for (const metaDoc of metaSnap.docs) {
+        const convId = metaDoc.id;
+        const msgRef = doc(db, "conversations", convId, "messages", notificationId);
+        const msgSnap = await getDoc(msgRef);
+        if (msgSnap.exists()) {
+          await updateDoc(msgRef, { read: true });
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("Error marking as read:", error);
+    }
   };
 
   const markAllAsRead = async () => {
@@ -99,12 +119,7 @@ const NotificationBell = ({ onOpenChat }) => {
           <div className="p-3 border-b border-white/10 flex justify-between items-center">
             <h3 className="text-sm font-bold text-white">Messages</h3>
             {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="text-xs text-amber-400 hover:text-amber-300"
-              >
-                Mark all as read
-              </button>
+              <button onClick={markAllAsRead} className="text-xs text-amber-400 hover:text-amber-300">Mark all as read</button>
             )}
           </div>
           <div className="max-h-96 overflow-y-auto">
@@ -121,13 +136,8 @@ const NotificationBell = ({ onOpenChat }) => {
                     setShowDropdown(false);
                   }}
                 >
-                  <p className="text-white text-sm font-medium">
-                    {notif.senderName || (notif.sender === "admin" ? "Owner" : "Customer")}
-                  </p>
+                  <p className="text-white text-sm font-medium">{notif.senderName || "Owner"}</p>
                   <p className="text-white/60 text-xs truncate">{notif.text}</p>
-                  <p className="text-white/30 text-xs mt-1">
-                    {notif.timestamp?.toDate ? notif.timestamp.toDate().toLocaleTimeString() : "Just now"}
-                  </p>
                 </div>
               ))
             )}

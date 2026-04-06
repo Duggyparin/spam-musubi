@@ -379,27 +379,6 @@ const ProfileModal = ({ onClose, onProfileUpdate }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Online/offline presence for customers
-useEffect(() => {
-  if (!user) return;
-  const userStatusRef = doc(db, "users", user.uid);
-  const updateOnlineStatus = async () => {
-    await setDoc(userStatusRef, { online: true, lastSeen: new Date().toISOString() }, { merge: true });
-  };
-  updateOnlineStatus();
-  const handleBeforeUnload = () => {
-    setDoc(userStatusRef, { online: false, lastSeen: new Date().toISOString() }, { merge: true });
-  };
-  window.addEventListener("beforeunload", handleBeforeUnload);
-  return () => {
-    setDoc(userStatusRef, { online: false, lastSeen: new Date().toISOString() }, { merge: true });
-    window.removeEventListener("beforeunload", handleBeforeUnload);
-  };
-}, [user]);
-
-
-
-
   const getOrderAge = (createdAt) => {
     if (!createdAt) return 0;
     const created = new Date(createdAt);
@@ -866,6 +845,8 @@ export default function Dashboard() {
   const [loadingPendingMain, setLoadingPendingMain] = useState(false);
   const [openChatUserId, setOpenChatUserId] = useState(null);
 
+  const [unreadCustomerCount, setUnreadCustomerCount] = useState(0);
+
   const scrollToForm = () => {
     if (stepContainerRef.current) {
       stepContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1115,6 +1096,25 @@ useEffect(() => {
     
     initNotifications();
   }, [user]);
+
+  // Unread message count for customer badge
+useEffect(() => {
+  if (!user || user.email === "monsanto.bryann@gmail.com") return; // admin doesn't need this badge
+  const metaRef = collection(db, "conversations_meta");
+  const q = query(metaRef, where("participants", "array-contains", user.uid));
+  const unsubscribe = onSnapshot(q, async (snapshot) => {
+    let total = 0;
+    for (const metaDoc of snapshot.docs) {
+      const convId = metaDoc.id;
+      const messagesRef = collection(db, "conversations", convId, "messages");
+      const msgQuery = query(messagesRef, where("read", "==", false), where("sender", "==", "admin"));
+      const msgSnap = await getDocs(msgQuery);
+      total += msgSnap.size;
+    }
+    setUnreadCustomerCount(total);
+  });
+  return () => unsubscribe();
+}, [user]);
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1427,25 +1427,31 @@ useEffect(() => {
         {false && <OnboardingTour onComplete={() => { localStorage.setItem("spamMusubiTutorial", "completed"); setShowOnboarding(false); }} onSkip={() => { localStorage.setItem("spamMusubiTutorial", "skipped"); setShowOnboarding(false); }} />}
 
         <div className="bg-black/80 border-b border-amber-400/20 px-6 py-4 sticky top-0 z-50 backdrop-blur">
-          <div className="max-w-2xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🍱</span>      
-              <button onClick={() => setShowChatList(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">💬 Message The Owner</button>
-              <div>
-                <p className="font-black text-amber-400 leading-none">Spam Musubi</p>
-                <p className="text-white/40 text-xs">Reserve for tomorrow</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <NotificationBell onOpenChat={(userId) => {
-  setShowChatList(true);
-  setOpenChatUserId(userId);
-}} />
-              <button onClick={() => setShowQR(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">🔗 Share</button>
-              <button onClick={() => auth.signOut()} className="text-xs border border-white/20 px-3 py-1.5 rounded-lg hover:border-red-400/50 hover:text-red-400 transition-all">Sign out</button>
-            </div>
-          </div>
-        </div>
+  <div className="max-w-2xl mx-auto flex justify-between items-center">
+    <div className="flex items-center gap-3">
+      <span className="text-2xl">🍱</span>
+      <div className="relative">
+        <button onClick={() => setShowChatList(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
+          💬 Message The Owner
+        </button>
+        {unreadCustomerCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            {unreadCustomerCount > 9 ? "9+" : unreadCustomerCount}
+          </span>
+        )}
+      </div>
+      <div>
+        <p className="font-black text-amber-400 leading-none">Spam Musubi</p>
+        <p className="text-white/40 text-xs">Reserve for tomorrow</p>
+      </div>
+    </div>
+    <div className="flex items-center gap-2">
+      <NotificationBell onOpenChat={(userId) => { setShowChatList(true); setOpenChatUserId(userId); }} />
+      <button onClick={() => setShowQR(true)} className="text-xs border border-amber-400/40 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">🔗 Share</button>
+      <button onClick={() => auth.signOut()} className="text-xs border border-white/20 px-3 py-1.5 rounded-lg hover:border-red-400/50 hover:text-red-400 transition-all">Sign out</button>
+    </div>
+  </div>
+</div>
 
         <div className="max-w-2xl mx-auto px-6 py-10" ref={stepContainerRef}>
           <div className="mb-6"><h1 className="text-2xl font-black">Hello, <span className="text-amber-400">{user.displayName?.split(" ")[0]}!</span> 👋</h1><p className="text-white/50 text-sm">Reserve your Spam Musubi for tomorrow</p></div>
@@ -2025,6 +2031,6 @@ useEffect(() => {
           />
         )}
       </div>
-    </div>
+    </div> 
   );
 }

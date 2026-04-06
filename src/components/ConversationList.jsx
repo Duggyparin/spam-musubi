@@ -4,7 +4,6 @@ import { collection, query, orderBy, getDocs, doc, getDoc, limit, where, onSnaps
 import ChatModal from "./ChatModal";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
-const ADMIN_UID = auth.currentUser?.uid;
 
 const Avatar = ({ name, imageUrl, online }) => {
   if (imageUrl) {
@@ -34,11 +33,9 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
   const currentUser = auth.currentUser;
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
-  // Fetch conversations from the "conversations" collection where the user is a participant
   useEffect(() => {
     if (!currentUser) return;
 
-    // Query conversations where the current user's UID is in the participants array
     const q = query(
       collection(db, "conversations_meta"),
       where("participants", "array-contains", currentUser.uid),
@@ -51,7 +48,24 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         const data = docSnap.data();
         const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
         if (!otherUserId) continue;
-        
+
+        // Fetch last message to determine read status
+        const lastMsgQuery = query(
+          collection(db, "conversations", docSnap.id, "messages"),
+          orderBy("timestamp", "desc"),
+          limit(1)
+        );
+        const lastMsgSnap = await getDocs(lastMsgQuery);
+        let lastMessage = data.lastMessage || "";
+        let unread = false;
+        if (!lastMsgSnap.empty) {
+          const lastMsg = lastMsgSnap.docs[0].data();
+          lastMessage = lastMsg.text;
+          // Unread if message is from the other user and read === false
+          const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
+          unread = isFromOther && lastMsg.read === false;
+        }
+
         // Fetch other user's details
         let userName = "User";
         let userEmail = "";
@@ -66,22 +80,23 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
             online = userDoc.data().online === true;
           }
         } catch (e) {}
-        
+
         convList.push({
           userId: otherUserId,
           userName,
           userEmail,
           userAvatar: avatarUrl,
           online,
-          lastMessage: data.lastMessage || "",
+          lastMessage,
           lastTimestamp: data.lastUpdated,
+          unread,
         });
       }
       setConversations(convList);
     }, (error) => console.error("Conversation listener error:", error));
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser, isAdmin]);
 
   useEffect(() => {
     if (preselectedUserId && conversations.length > 0) {
@@ -117,11 +132,16 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
                     <div className="flex items-center gap-3">
                       <Avatar name={conv.userName} imageUrl={conv.userAvatar} online={conv.online} />
                       <div className="flex-1">
-                        <p className="font-bold text-white text-sm">
+                        <p className={`text-sm ${conv.unread ? 'font-bold text-white' : 'font-normal text-white/80'}`}>
                           {isAdmin ? conv.userName : "Owner"}
                         </p>
-                        <p className="text-white/40 text-xs truncate">{conv.lastMessage || "No messages yet"}</p>
+                        <p className={`text-xs truncate ${conv.unread ? 'text-amber-400 font-medium' : 'text-white/40'}`}>
+                          {conv.lastMessage || "No messages yet"}
+                        </p>
                       </div>
+                      {conv.unread && (
+                        <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
+                      )}
                     </div>
                   </button>
                 ))}
