@@ -4,6 +4,7 @@ import { collection, query, orderBy, getDocs, doc, getDoc, limit, where, onSnaps
 import ChatModal from "./ChatModal";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
+const ADMIN_UID = "6psQUodrsfZBKHzNzX29aTLkV4s2"; // Your current admin UID
 
 const Avatar = ({ name, imageUrl, online }) => {
   if (imageUrl) {
@@ -50,25 +51,24 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         if (!otherUserId) continue;
 
         // Fetch other user's details
-let userName = "User";
-let userEmail = "";
-let avatarUrl = null;
-let online = false;
-try {
-  const userDoc = await getDoc(doc(db, "users", otherUserId));
-  if (userDoc.exists()) {
-    userName = userDoc.data().fullName || userDoc.data().userName || "User";
-    userEmail = userDoc.data().userEmail || "";
-    avatarUrl = userDoc.data().avatarUrl || null;
-    online = userDoc.data().online === true;
-  } else {
-    // If user document doesn't exist, use a fallback name (e.g., email or UID)
-    console.warn(`User document missing for ${otherUserId}`);
-    userName = "Customer"; // or fetch from somewhere else
-  }
-} catch (e) {
-  console.error("Error fetching user details:", e);
-}
+        let userName = "User";
+        let userEmail = "";
+        let avatarUrl = null;
+        let online = false;
+        try {
+          const userDoc = await getDoc(doc(db, "users", otherUserId));
+          if (userDoc.exists()) {
+            userName = userDoc.data().fullName || userDoc.data().userName || "User";
+            userEmail = userDoc.data().userEmail || "";
+            avatarUrl = userDoc.data().avatarUrl || null;
+            online = userDoc.data().online === true;
+          } else {
+            console.warn(`User document missing for ${otherUserId}`);
+            userName = "Customer";
+          }
+        } catch (e) {
+          console.error("Error fetching user details:", e);
+        }
 
         // Fetch last message to determine read status
         let lastMessage = data.lastMessage || "";
@@ -83,14 +83,11 @@ try {
           if (!lastMsgSnap.empty) {
             const lastMsg = lastMsgSnap.docs[0].data();
             lastMessage = lastMsg.text || lastMessage;
-            // Check if last message is from the other user and not read
             const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
-            // Ensure read is a boolean (convert if needed)
             const isRead = lastMsg.read === true;
             unread = isFromOther && !isRead;
             console.log(`Conversation with ${userName}: unread = ${unread} (sender: ${lastMsg.sender}, read: ${lastMsg.read})`);
           } else {
-            // No messages yet – not unread
             unread = false;
           }
         } catch (err) {
@@ -108,6 +105,34 @@ try {
           unread,
         });
       }
+
+      // 🔧 For customers: if no conversations exist, add a placeholder for admin
+      if (!isAdmin && convList.length === 0) {
+        let adminName = "Owner";
+        let adminAvatar = null;
+        let adminOnline = false;
+        try {
+          const adminDoc = await getDoc(doc(db, "users", ADMIN_UID));
+          if (adminDoc.exists()) {
+            adminName = adminDoc.data().fullName || "Owner";
+            adminAvatar = adminDoc.data().avatarUrl || null;
+            adminOnline = adminDoc.data().online === true;
+          }
+        } catch(e) {
+          console.error("Error fetching admin details:", e);
+        }
+        convList.push({
+          userId: ADMIN_UID,
+          userName: adminName,
+          userEmail: ADMIN_EMAIL,
+          userAvatar: adminAvatar,
+          online: adminOnline,
+          lastMessage: "Start a conversation",
+          lastTimestamp: null,
+          unread: false,
+        });
+      }
+
       setConversations(convList);
     }, (error) => console.error("Conversation listener error:", error));
 
@@ -125,21 +150,18 @@ try {
     <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-4xl p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-  <div className="flex items-center gap-2">
-    <h2 className="text-xl font-black text-amber-400">💬 Messages</h2>
-    <button 
-      onClick={() => {
-        // Force reload the page to refresh conversations
-        window.location.reload();
-      }} 
-      className="text-xs text-amber-400 hover:text-amber-300 transition-all"
-      title="Refresh conversations"
-    >
-      🔄
-    </button>
-  </div>
-  <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
-</div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-black text-amber-400">💬 Messages</h2>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="text-xs text-amber-400 hover:text-amber-300 transition-all"
+              title="Refresh conversations"
+            >
+              🔄
+            </button>
+          </div>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
+        </div>
 
         {conversations.length === 0 ? (
           <div className="text-center py-12">
@@ -184,8 +206,6 @@ try {
                   userEmail={selectedChat.userEmail}
                   onClose={() => setSelectedChat(null)}
                 />
-
-                
               ) : (
                 <div className="flex-1 flex items-center justify-center text-white/40">
                   Select a conversation to start messaging

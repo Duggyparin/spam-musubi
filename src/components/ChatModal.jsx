@@ -48,7 +48,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   };
 
-  // Dynamic admin data fetch by email (no hardcoded UID)
+  // Fetch admin data by email (no hardcoded UID)
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
@@ -67,6 +67,25 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchAdminData();
   }, []);
 
+  // ========== AUTO-CREATE CONVERSATION METADATA ==========
+  useEffect(() => {
+    const ensureConversationExists = async () => {
+      if (!conversationId) return;
+      const metaRef = doc(db, "conversations_meta", conversationId);
+      const metaSnap = await getDoc(metaRef);
+      if (!metaSnap.exists()) {
+        await setDoc(metaRef, {
+          participants: [currentUser.uid, otherUserId],
+          lastMessage: "",
+          lastUpdated: serverTimestamp(),
+        });
+        console.log("✅ Auto-created conversation metadata:", conversationId);
+      }
+    };
+    ensureConversationExists();
+  }, [conversationId, currentUser.uid, otherUserId]);
+
+  // Real-time online status for other user
   useEffect(() => {
     if (!otherUserId) return;
     const userStatusRef = doc(db, "users", otherUserId);
@@ -137,7 +156,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     markMessagesAsRead();
   }, [conversationId, isAdmin]);
 
-  // Fetch customer details (phone) for admin
+  // Fetch customer details (for admin)
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
     const fetchUserDetails = async () => {
