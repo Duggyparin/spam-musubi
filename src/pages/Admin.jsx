@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, getDocs, doc, updateDoc, query, orderBy, where, addDoc, deleteDoc, getDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, where, addDoc, deleteDoc, getDoc, setDoc, writeBatch, onSnapshot } from "firebase/firestore";
 import emailjs from '@emailjs/browser';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import ConversationList from "../components/ConversationList";
 import { getMessaging } from "firebase/messaging";
 import { requestNotificationPermission, onMessageListener } from "../services/notification";
-import NotificationBell from "../components/NotificationBell";
 import StockManager from "../components/StockManager";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
@@ -194,6 +193,7 @@ export default function Admin() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const CLOUD_NAME = "dvbbusgra";
   const UPLOAD_PRESET = "spam_musubi_preset";
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
 
   // ========== FETCH ADMIN PROFILE ==========
   const fetchAdminProfile = async () => {
@@ -310,6 +310,26 @@ export default function Admin() {
       console.error("Notification init error:", error);
     }
   };
+
+  // Real‑time unread count for admin (customer messages)
+useEffect(() => {
+  if (!user) return;
+  const metaRef = collection(db, "conversations_meta");
+  const q = query(metaRef, where("participants", "array-contains", user.uid));
+  const unsubscribe = onSnapshot(q, async (snapshot) => {
+    let total = 0;
+    for (const metaDoc of snapshot.docs) {
+      const convId = metaDoc.id;
+      const messagesRef = collection(db, "conversations", convId, "messages");
+      const msgQuery = query(messagesRef, where("sender", "==", "customer"), where("read", "==", false));
+      const msgSnap = await getDocs(msgQuery);
+      total += msgSnap.size;
+    }
+    setAdminUnreadCount(total);
+  });
+  return () => unsubscribe();
+}, [user]);
+
   
   initNotifications();
 }, [user]); 
@@ -710,11 +730,23 @@ export default function Admin() {
             <button onClick={() => setShowStockManager(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">📦 Stock Manager</button>
             <button onClick={toggleSoldOut} disabled={togglingSoldOut} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isSoldOut ? "bg-red-600 text-white hover:bg-red-700" : "bg-green-600 text-white hover:bg-green-700"}`}>{togglingSoldOut ? "..." : (isSoldOut ? "🚫 SOLD OUT" : "✅ ACCEPTING ORDERS")}</button>
             <button onClick={toggleStockLimit} disabled={togglingStockLimit} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isStockLimit ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-gray-600 text-white hover:bg-gray-700"}`}>{togglingStockLimit ? "..." : (isStockLimit ? "⚠️ STOCK LIMIT" : "📦 STOCK OK")}</button>
-            <button onClick={() => setShowChatList(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">💬 Messages</button>
-            <NotificationBell onOpenChat={(userId) => {
-  setShowChatList(true);
-  setOpenChatUserId(userId);
-}} />
+            <div className="relative">
+  <button
+    onClick={async () => {
+      await markAllCustomerMessagesAsRead();
+      setShowChatList(true);
+    }}
+    className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all"
+  >
+    💬
+  </button>
+  {adminUnreadCount > 0 && (
+    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+      {adminUnreadCount > 9 ? "9+" : adminUnreadCount}
+    </span>
+  )}
+</div>
+            
             {/* 👤 PROFILE BUTTON */}
             <button onClick={() => setShowAdminProfile(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
               👤 Profile

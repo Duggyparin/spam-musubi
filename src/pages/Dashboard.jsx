@@ -5,7 +5,6 @@ import { addDoc, collection, query, where, orderBy, getDocs, doc, getDoc, update
 import ConversationList from "../components/ConversationList";
 import { getMessaging } from "firebase/messaging";
 import { requestNotificationPermission, onMessageListener } from "../services/notification";
-import NotificationBell from "../components/NotificationBell";
 import PublicReviews from "../components/PublicReviews";
 
 // ----- PRODUCTS -----
