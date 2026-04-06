@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
-
+import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const DEFAULT_ADMIN_AVATAR = "https://i.pravatar.cc/150?img=7";
 
