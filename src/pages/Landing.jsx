@@ -68,7 +68,6 @@ export default function Landing() {
   const [topReview, setTopReview] = useState(null)
   const [loadingReview, setLoadingReview] = useState(true)
 
-  // Fetch total musubi from productStock (slots = total stock)
   useEffect(() => {
     const fetchSlotsLeft = async () => {
       setLoadingSlots(true)
@@ -87,7 +86,6 @@ export default function Landing() {
     fetchSlotsLeft()
   }, [])
 
-  // Fetch highest-rated review for testimonial
   useEffect(() => {
     const fetchTopReview = async () => {
       setLoadingReview(true)
@@ -125,7 +123,6 @@ export default function Landing() {
   return (
     <div className={`min-h-screen bg-[#0a0a0a] text-white font-sans ${fadeOut ? 'fade-out' : ''}`}>
 
-      {/* SCARCITY BANNER – based on stock */}
       <div className={`text-center py-2 text-sm font-medium transition-colors ${
         loadingSlots ? 'bg-gray-600' :
         slotsLeft === null ? 'bg-red-600' :
@@ -136,7 +133,6 @@ export default function Landing() {
         {getBannerText()}
       </div>
 
-      {/* HERO SECTION (unchanged) */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img
@@ -213,7 +209,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ABOUT SECTION (unchanged) */}
       <section className="py-24 px-6 max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <span className="text-amber-400 text-sm font-semibold tracking-widest uppercase">About Us</span>
@@ -243,7 +238,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* HOW TO RESERVE (unchanged) */}
       <section className="py-24 px-6 bg-white/[0.02] border-y border-white/10">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
@@ -276,7 +270,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* PRODUCTS SECTION (unchanged) */}
       <section className="py-24 px-6 max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <span className="text-amber-400 text-sm font-semibold tracking-widest uppercase">Our Menu</span>
@@ -320,7 +313,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* TESTIMONIAL SECTION – now real */}
       <section className="py-24 px-6 bg-white/[0.02] border-y border-white/10">
         <div className="max-w-3xl mx-auto text-center">
           <div className="text-5xl mb-4">⭐</div>
@@ -346,7 +338,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FINAL CTA (unchanged) */}
       <section className="py-24 px-6 text-center">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-4xl md:text-5xl font-black mb-6">Ready to Order? 🍱</h2>
@@ -379,7 +370,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FOOTER (unchanged) */}
+      {/* FOOTER with PRIVACY POLICY LINK (required for OAuth verification) */}
       <footer className="border-t border-white/10 py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-white/40 text-sm">
           <div className="flex items-center gap-2">
@@ -393,7 +384,10 @@ export default function Landing() {
             <a href="#" className="hover:text-amber-400 transition-colors">Facebook</a>
             <a href="#" className="hover:text-amber-400 transition-colors">Contact</a>
           </div>
-          <span>USTP Campus · Made fresh daily</span>
+          <div className="flex gap-6">
+            <a href="/privacy" target="_blank" className="hover:text-amber-400 transition-colors">Privacy Policy</a>
+            <a href="/terms" target="_blank" className="hover:text-amber-400 transition-colors">Terms of Service</a>
+          </div>
           <span>© 2026 Spam Musubi. All rights reserved.</span>
         </div>
       </footer>
