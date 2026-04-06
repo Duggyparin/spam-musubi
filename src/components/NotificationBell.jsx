@@ -21,10 +21,10 @@ const NotificationBell = ({ onOpenChat }) => {
       const q = query(messagesRef, where("read", "==", false), where("sender", "==", "customer"));
       unsubscribe = onSnapshot(q, (snapshot) => {
         const unreadList = [];
-        snapshot.forEach(doc => {
-          const data = doc.data();
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
           unreadList.push({
-            id: doc.id,
+            id: docSnap.id,
             text: data.text,
             senderName: data.senderName,
             sender: data.sender,
@@ -40,10 +40,10 @@ const NotificationBell = ({ onOpenChat }) => {
       const q = query(messagesRef, where("read", "==", false), where("sender", "==", "admin"));
       unsubscribe = onSnapshot(q, (snapshot) => {
         const unreadList = [];
-        snapshot.forEach(doc => {
-          const data = doc.data();
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
           unreadList.push({
-            id: doc.id,
+            id: docSnap.id,
             text: data.text,
             senderName: data.senderName,
             sender: data.sender,
@@ -109,9 +109,7 @@ const NotificationBell = ({ onOpenChat }) => {
           </div>
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-4 text-center text-white/40 text-sm">
-                No new messages
-              </div>
+              <div className="p-4 text-center text-white/40 text-sm">No new messages</div>
             ) : (
               notifications.map((notif) => (
                 <div

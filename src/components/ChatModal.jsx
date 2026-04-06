@@ -27,10 +27,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [otherUserOnline, setOtherUserOnline] = useState(false);
   const [otherUserLastSeen, setOtherUserLastSeen] = useState(null);
-  const [lastReadTimestamp, setLastReadTimestamp] = useState(null);
   const messagesEndRef = useRef(null);
-  const chatContainerRef = useRef(null);
-  const [showNewSeparator, setShowNewSeparator] = useState(false);
   
   const currentUser = auth.currentUser;
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
@@ -81,23 +78,37 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ========== REAL-TIME MESSAGES (fixed) ==========
+  // ========== SIMPLIFIED REAL-TIME MESSAGES ==========
   useEffect(() => {
     if (!otherUserId) return;
     const messagesRef = collection(db, "chats", otherUserId, "messages");
     const q = query(messagesRef, orderBy("timestamp", "asc"));
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
-        const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log(`📨 Messages loaded for ${isAdmin ? 'admin' : 'customer'}:`, msgs.length);
+        const msgs = snapshot.docs.map(doc => {
+          const data = doc.data();
+          // Convert Firestore Timestamp to JS Date for display
+          let timestampDate = null;
+          if (data.timestamp) {
+            if (data.timestamp.toDate) timestampDate = data.timestamp.toDate();
+            else timestampDate = new Date(data.timestamp);
+          }
+          return {
+            id: doc.id,
+            text: data.text,
+            sender: data.sender,
+            senderName: data.senderName,
+            read: data.read,
+            timestamp: timestampDate,
+          };
+        });
+        console.log("📨 Messages loaded:", msgs.length);
         setMessages(msgs);
       },
-      (error) => {
-        console.error("Chat listener error:", error);
-      }
+      (error) => console.error("Chat listener error:", error)
     );
     return unsubscribe;
-  }, [otherUserId, isAdmin]);
+  }, [otherUserId]);
 
   // Mark messages as read when chat opens
   useEffect(() => {
@@ -118,42 +129,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     };
     markMessagesAsRead();
   }, [otherUserId, isAdmin]);
-
-  // Last read timestamp from localStorage
-  useEffect(() => {
-    const key = `lastRead_${otherUserId}`;
-    const stored = localStorage.getItem(key);
-    if (stored) setLastReadTimestamp(stored);
-    else setLastReadTimestamp(new Date().toISOString());
-  }, [otherUserId]);
-
-  useEffect(() => {
-    if (!lastReadTimestamp || messages.length === 0) return;
-    const latestMessageTime = messages[messages.length - 1]?.timestamp;
-    if (latestMessageTime && latestMessageTime > lastReadTimestamp) setShowNewSeparator(true);
-    else setShowNewSeparator(false);
-  }, [messages, lastReadTimestamp]);
-
-  const markAsReadAndUpdate = () => {
-    if (messages.length === 0) return;
-    const lastMsgTime = messages[messages.length - 1]?.timestamp;
-    if (lastMsgTime) {
-      localStorage.setItem(`lastRead_${otherUserId}`, lastMsgTime);
-      setLastReadTimestamp(lastMsgTime);
-      setShowNewSeparator(false);
-    }
-  };
-
-  useEffect(() => {
-    const container = chatContainerRef.current;
-    if (!container) return;
-    const handleScroll = () => {
-      const isBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
-      if (isBottom) markAsReadAndUpdate();
-    };
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [messages]);
 
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
@@ -189,13 +164,12 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
         fromUid: senderId,
         toUid: recipientId,
-        timestamp: serverTimestamp(), // ✅ Firestore Timestamp
+        timestamp: serverTimestamp(),
         read: false
       };
       await addDoc(collection(db, "chats", recipientId, "messages"), messageData);
       await addDoc(collection(db, "chats", senderId, "messages"), messageData);
       setNewMessage("");
-      setTimeout(() => markAsReadAndUpdate(), 100);
     } catch (error) {
       console.error("Send error:", error);
       alert("Failed to send message.");
@@ -204,45 +178,13 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  
-   const groupMessagesByDate = () => {
-  const groups = {};
-  messages.forEach(msg => {
-    if (!msg.timestamp) return;
-    let dateObj;
-    if (msg.timestamp.toDate) dateObj = msg.timestamp.toDate();
-    else dateObj = new Date(msg.timestamp);
-    const date = dateObj.toLocaleDateString();
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(msg);
-  });
-  return groups;
-};
-
-  const messageGroups = groupMessagesByDate();
-  const hasMessages = Object.keys(messageGroups).length > 0;
-
   const otherName = isAdmin ? userName : (adminData?.fullName || "Owner");
   let avatarToShow = isAdmin ? otherUserAvatar : (adminData?.avatarUrl || DEFAULT_ADMIN_AVATAR);
-
-  let newMessagesStartIndex = -1;
-  if (showNewSeparator && lastReadTimestamp) {
-    for (let i = 0; i < messages.length; i++) {
-      let msgTime = messages[i].timestamp;
-      if (!msgTime) continue;
-      let msgTimeStr;
-      if (msgTime.toDate) msgTimeStr = msgTime.toDate().toISOString();
-      else msgTimeStr = msgTime;
-      if (msgTimeStr > lastReadTimestamp) {
-        newMessagesStartIndex = i;
-        break;
-      }
-    }
-  }
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md flex flex-col h-[600px]">
+        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Avatar name={otherName} imageUrl={avatarToShow} />
@@ -256,62 +198,35 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               )}
             </div>
           </div>
-          <button onClick={() => { markAsReadAndUpdate(); onClose(); }} className="text-white/40 hover:text-white text-2xl">✕</button>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
-        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-          {!hasMessages ? (
+        {/* Messages - simple list */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
           ) : (
-            (() => {
-              let msgIndex = 0;
-              const elements = [];
-              for (const [date, msgs] of Object.entries(messageGroups)) {
-                elements.push(
-                  <div key={date} className="text-center my-3">
-                    <span className="text-xs text-white/30 bg-white/5 px-3 py-1 rounded-full">
-                      {date === new Date().toLocaleDateString() ? "Today" : date}
-                    </span>
-                  </div>
-                );
-                for (const msg of msgs) {
-                  const isMyMessage = (isAdmin && msg.sender === "admin") || (!isAdmin && msg.sender === "customer");
-                  let timeStr = "";
-                  try {
-                    let dateObj;
-                    if (msg.timestamp?.toDate) dateObj = msg.timestamp.toDate();
-                    else dateObj = new Date(msg.timestamp);
-                    timeStr = dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                  } catch(e) {}
-                  if (showNewSeparator && msgIndex === newMessagesStartIndex) {
-                    elements.push(
-                      <div key={`new-sep-${msg.id}`} className="relative my-4">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-amber-400/30"></div></div>
-                        <div className="relative flex justify-center text-xs"><span className="bg-[#111] px-2 text-amber-400">New Messages</span></div>
-                      </div>
-                    );
-                  }
-                  elements.push(
-                    <div key={msg.id} className={`flex mb-3 ${isMyMessage ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
-                        <p className="text-sm break-words">{msg.text}</p>
-                        <div className="flex items-center justify-end gap-1 mt-1">
-                          <p className="text-[10px] opacity-60">{timeStr}</p>
-                          {isMyMessage && msg.read === true && <span className="text-[10px] text-green-400">✓✓ Seen</span>}
-                          {isMyMessage && msg.read !== true && <span className="text-[10px] text-white/40">✓ Delivered</span>}
-                        </div>
-                      </div>
+            messages.map((msg) => {
+              const isMyMessage = (isAdmin && msg.sender === "admin") || (!isAdmin && msg.sender === "customer");
+              const timeStr = msg.timestamp ? msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+              return (
+                <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
+                    <p className="text-sm break-words">{msg.text}</p>
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      <p className="text-[10px] opacity-60">{timeStr}</p>
+                      {isMyMessage && msg.read === true && <span className="text-[10px] text-green-400">✓✓ Seen</span>}
+                      {isMyMessage && msg.read !== true && <span className="text-[10px] text-white/40">✓ Delivered</span>}
                     </div>
-                  );
-                  msgIndex++;
-                }
-              }
-              return elements;
-            })()
+                  </div>
+                </div>
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Input */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
