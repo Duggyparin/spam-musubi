@@ -78,7 +78,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ========== SIMPLIFIED REAL-TIME MESSAGES ==========
+  // ========== REAL-TIME MESSAGES (with safe timestamp conversion) ==========
   useEffect(() => {
     if (!otherUserId) return;
     const messagesRef = collection(db, "chats", otherUserId, "messages");
@@ -87,18 +87,19 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       (snapshot) => {
         const msgs = snapshot.docs.map(doc => {
           const data = doc.data();
-          // Convert Firestore Timestamp to JS Date for display
+          // Convert timestamp safely to Date object
           let timestampDate = null;
           if (data.timestamp) {
             if (data.timestamp.toDate) timestampDate = data.timestamp.toDate();
-            else timestampDate = new Date(data.timestamp);
+            else if (typeof data.timestamp === 'string') timestampDate = new Date(data.timestamp);
+            else if (data.timestamp instanceof Date) timestampDate = data.timestamp;
           }
           return {
             id: doc.id,
-            text: data.text,
+            text: data.text || "",
             sender: data.sender,
             senderName: data.senderName,
-            read: data.read,
+            read: data.read === true,
             timestamp: timestampDate,
           };
         });
@@ -181,6 +182,19 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const otherName = isAdmin ? userName : (adminData?.fullName || "Owner");
   let avatarToShow = isAdmin ? otherUserAvatar : (adminData?.avatarUrl || DEFAULT_ADMIN_AVATAR);
 
+  // Format time safely
+  const formatTime = (timestamp) => {
+    if (!timestamp) return "";
+    try {
+      if (timestamp instanceof Date && !isNaN(timestamp)) {
+        return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      return "";
+    } catch (e) {
+      return "";
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md flex flex-col h-[600px]">
@@ -201,14 +215,14 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
-        {/* Messages - simple list */}
+        {/* Messages - with error boundary */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
           ) : (
             messages.map((msg) => {
               const isMyMessage = (isAdmin && msg.sender === "admin") || (!isAdmin && msg.sender === "customer");
-              const timeStr = msg.timestamp ? msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+              const timeStr = formatTime(msg.timestamp);
               return (
                 <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
