@@ -279,8 +279,8 @@ const QRModal = ({ onClose }) => {
   );
 };
 
-// ========== PROFILE MODAL (modified to use `user` prop) ==========
-const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
+// ========== PROFILE MODAL ==========
+const ProfileModal = ({ onClose, onProfileUpdate }) => {
   const [loyaltyData, setLoyaltyData] = useState(null);
   const [pendingOrders, setPendingOrders] = useState([]);
   const [loadingPending, setLoadingPending] = useState(true);
@@ -292,8 +292,9 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
   const UPLOAD_PRESET = "spam_musubi_preset";
 
   const loadSavedFormData = () => {
-    if (!user) return null;
-    const saved = localStorage.getItem(`spamMusubi_user_${user.uid}`);
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+    const saved = localStorage.getItem(`spamMusubi_user_${currentUser.uid}`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -305,22 +306,24 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
   };
 
   const updateSavedFormData = (updates) => {
-    if (!user) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
     const saved = loadSavedFormData() || {};
     const newSaved = { ...saved, ...updates };
-    localStorage.setItem(`spamMusubi_user_${user.uid}`, JSON.stringify(newSaved));
+    localStorage.setItem(`spamMusubi_user_${currentUser.uid}`, JSON.stringify(newSaved));
   };
 
   const savedUserData = loadSavedFormData();
   const userType = savedUserData?.userType || userProfile?.userType || 'student';
 
   const fetchPendingOrders = async () => {
-    if (!user) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
     setLoadingPending(true);
     try {
       const q = query(
         collection(db, "reservations"),
-        where("userId", "==", user.uid),
+        where("userId", "==", currentUser.uid),
         where("status", "==", "pending"),
         orderBy("createdAt", "desc")
       );
@@ -335,10 +338,11 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
       
       try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
         let firestoreData = {};
         if (userDoc.exists()) {
           setUserProfile(userDoc.data());
@@ -360,7 +364,7 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
 
         setFormData(mergedData);
 
-        const loyaltyRef = doc(db, "loyalty", user.uid);
+        const loyaltyRef = doc(db, "loyalty", currentUser.uid);
         const loyaltySnap = await getDoc(loyaltyRef);
         if (loyaltySnap.exists()) setLoyaltyData(loyaltySnap.data());
       } catch (err) {
@@ -373,7 +377,7 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
     
     const interval = setInterval(fetchPendingOrders, 60000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, []);
 
   const getOrderAge = (createdAt) => {
     if (!createdAt) return 0;
@@ -403,7 +407,7 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
   };
 
   const openCloudinaryWidget = () => {
-    if (!user) return;
+    const currentUser = auth.currentUser;
     if (!window.cloudinary) {
       alert("Cloudinary widget not loaded. Please refresh the page.");
       return;
@@ -428,7 +432,7 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
         if (result && result.event === "success") {
           const imageUrl = result.info.secure_url;
           try {
-            await setDoc(doc(db, "users", user.uid), { avatarUrl: imageUrl }, { merge: true });
+            await setDoc(doc(db, "users", currentUser.uid), { avatarUrl: imageUrl }, { merge: true });
             setUserProfile(prev => ({ ...prev, avatarUrl: imageUrl }));
             if (onProfileUpdate) onProfileUpdate();
             alert("Avatar updated!");
@@ -442,7 +446,8 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
   };
 
   const updateContactInfo = async () => {
-    if (!user) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
     try {
       const updateData = {
         contactNumber: formData.contactNumber,
@@ -455,11 +460,11 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
           updateData.customDepartment = formData.customDepartment;
         }
       }
-      await setDoc(doc(db, "users", user.uid), updateData, { merge: true });
+      await setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true });
 
       const saved = loadSavedFormData() || {};
       const updatedSaved = { ...saved, ...updateData };
-      localStorage.setItem(`spamMusubi_user_${user.uid}`, JSON.stringify(updatedSaved));
+      localStorage.setItem(`spamMusubi_user_${currentUser.uid}`, JSON.stringify(updatedSaved));
 
       if (onProfileUpdate) onProfileUpdate();
       alert("Contact info saved!");
@@ -470,8 +475,9 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
   };
 
   const clearSavedData = () => {
-    if (user) {
-      localStorage.removeItem(`spamMusubi_user_${user.uid}`);
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      localStorage.removeItem(`spamMusubi_user_${currentUser.uid}`);
       alert("Saved form data cleared.");
     }
   };
@@ -494,7 +500,7 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
             {userProfile?.avatarUrl ? (
               <img src={userProfile.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-amber-400">{user?.displayName?.[0] || "👤"}</span>
+              <span className="text-amber-400">{auth.currentUser?.displayName?.[0] || "👤"}</span>
             )}
           </div>
           <button
@@ -508,8 +514,8 @@ const ProfileModal = ({ onClose, onProfileUpdate, user }) => {
 
         <div className="bg-white/5 rounded-xl p-3 mb-4 text-left">
           <p className="text-white/70 text-sm font-medium">Account</p>
-          <p className="text-white text-sm">{user?.displayName || "User"}</p>
-          <p className="text-white/40 text-xs">{user?.email}</p>
+          <p className="text-white text-sm">{auth.currentUser?.displayName || "User"}</p>
+          <p className="text-white/40 text-xs">{auth.currentUser?.email}</p>
         </div>
 
         <div className="bg-white/5 rounded-xl p-3 mb-4 text-left">
@@ -790,8 +796,9 @@ const NotificationGuide = () => {
 };
 
 // ========== MAIN DASHBOARD COMPONENT ==========
-export default function Dashboard({ user }) { 
+export default function Dashboard() {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -939,6 +946,30 @@ export default function Dashboard({ user }) {
     if (!hasSeenTutorial) setShowOnboarding(true);
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (u) => {
+      if (u) {
+        setUser(u);
+        const userDoc = await getDoc(doc(db, "users", u.uid));
+        if (userDoc.exists()) setUserProfile(userDoc.data());
+        
+        const saved = loadSavedFormData();
+        if (saved) {
+          setForm(prev => ({
+            ...prev,
+            fullName: u.displayName || saved.fullName || "",
+            ...saved,
+          }));
+          if (saved.department === 'others') setShowCustomDepartment(true);
+        } else {
+          setForm(prev => ({ ...prev, fullName: u.displayName || "" }));
+        }
+      } else {
+        navigate("/login");
+      }
+    });
+    return unsubscribe;
+  }, [navigate]);
 
   useEffect(() => {
     const fetchSoldOutStatus = async () => {
@@ -2030,7 +2061,7 @@ await addDoc(collection(db, "notifications"), {
         </div>
 
         {showQR && <QRModal onClose={() => setShowQR(false)} />}
-        {showProfile && <ProfileModal onClose={() => setShowProfile(false)} onProfileUpdate={refreshUserProfile} user={user} />}
+        {showProfile && <ProfileModal onClose={() => setShowProfile(false)} onProfileUpdate={refreshUserProfile} />}
         {showChatList && (
   <ConversationList 
     onClose={() => { 
