@@ -18,6 +18,11 @@ const Avatar = ({ name, imageUrl }) => {
   );
 };
 
+// Generate a unique conversation ID for two users (sorted UIDs)
+const getConversationId = (uid1, uid2) => {
+  return [uid1, uid2].sort().join('_');
+};
+
 const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -32,6 +37,9 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const currentUser = auth.currentUser;
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
   const otherUserId = userId;
+  
+  // Single conversation ID for both users
+  const conversationId = getConversationId(currentUser.uid, otherUserId);
 
   const formatLastSeen = (lastSeenISO) => {
     if (!lastSeenISO) return "Recently";
@@ -78,21 +86,19 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ========== REAL-TIME MESSAGES (with safe timestamp conversion) ==========
+  // REAL-TIME MESSAGES from SINGLE conversation document
   useEffect(() => {
-    if (!otherUserId) return;
-    const messagesRef = collection(db, "chats", otherUserId, "messages");
+    if (!conversationId) return;
+    const messagesRef = collection(db, "conversations", conversationId, "messages");
     const q = query(messagesRef, orderBy("timestamp", "asc"));
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
         const msgs = snapshot.docs.map(doc => {
           const data = doc.data();
-          // Convert timestamp safely to Date object
           let timestampDate = null;
           if (data.timestamp) {
             if (data.timestamp.toDate) timestampDate = data.timestamp.toDate();
             else if (typeof data.timestamp === 'string') timestampDate = new Date(data.timestamp);
-            else if (data.timestamp instanceof Date) timestampDate = data.timestamp;
           }
           return {
             id: doc.id,
@@ -103,20 +109,20 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
             timestamp: timestampDate,
           };
         });
-        console.log("📨 Messages loaded:", msgs.length);
+        console.log("📨 Messages loaded from single conversation:", msgs.length);
         setMessages(msgs);
       },
       (error) => console.error("Chat listener error:", error)
     );
     return unsubscribe;
-  }, [otherUserId]);
+  }, [conversationId]);
 
   // Mark messages as read when chat opens
   useEffect(() => {
-    if (!otherUserId) return;
+    if (!conversationId) return;
     const markMessagesAsRead = async () => {
       try {
-        const messagesRef = collection(db, "chats", otherUserId, "messages");
+        const messagesRef = collection(db, "conversations", conversationId, "messages");
         const otherSender = isAdmin ? "customer" : "admin";
         const q = query(messagesRef, where("read", "==", false), where("sender", "==", otherSender));
         const querySnapshot = await getDocs(q);
@@ -129,7 +135,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       }
     };
     markMessagesAsRead();
-  }, [otherUserId, isAdmin]);
+  }, [conversationId, isAdmin]);
 
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
@@ -157,19 +163,16 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     if (!newMessage.trim()) return;
     setSending(true);
     try {
-      const recipientId = otherUserId;
-      const senderId = currentUser.uid;
       const messageData = {
         text: newMessage,
         sender: isAdmin ? "admin" : "customer",
         senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
-        fromUid: senderId,
-        toUid: recipientId,
+        fromUid: currentUser.uid,
+        toUid: otherUserId,
         timestamp: serverTimestamp(),
         read: false
       };
-      await addDoc(collection(db, "chats", recipientId, "messages"), messageData);
-      await addDoc(collection(db, "chats", senderId, "messages"), messageData);
+      await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
       setNewMessage("");
     } catch (error) {
       console.error("Send error:", error);
@@ -182,7 +185,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const otherName = isAdmin ? userName : (adminData?.fullName || "Owner");
   let avatarToShow = isAdmin ? otherUserAvatar : (adminData?.avatarUrl || DEFAULT_ADMIN_AVATAR);
 
-  // Format time safely
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
     try {
@@ -198,7 +200,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md flex flex-col h-[600px]">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Avatar name={otherName} imageUrl={avatarToShow} />
@@ -215,13 +216,12 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
-        {/* Messages - with error boundary */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
           ) : (
             messages.map((msg) => {
-              const isMyMessage = (isAdmin && msg.sender === "admin") || (!isAdmin && msg.sender === "customer");
+              const isMyMessage = msg.sender === (isAdmin ? "admin" : "customer");
               const timeStr = formatTime(msg.timestamp);
               return (
                 <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
@@ -240,7 +240,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
