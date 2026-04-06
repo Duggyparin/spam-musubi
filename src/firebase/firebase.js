@@ -22,6 +22,20 @@ export const db = getFirestore(app);
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
 
+// Analytics (only if supported)
 if (typeof window !== "undefined") {
   isSupported().then(supported => supported && getAnalytics(app)).catch(() => {});
+}
+
+// ========== EXPOSE FIREBASE GLOBALLY FOR CONSOLE DEBUGGING ==========
+if (typeof window !== "undefined") {
+  window.firebase = {
+    auth,
+    db,
+    firestore: db,
+    FieldValue: {
+      serverTimestamp: () => new Date().toISOString() // fallback – actual Firestore timestamp will be used
+    }
+  };
+  console.log("🔥 Firebase exposed globally. You can now use 'firebase' in the console.");
 }
