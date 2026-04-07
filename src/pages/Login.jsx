@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
+  sendSignInLinkToEmail,
   isSignInWithEmailLink, 
   signInWithEmailLink 
 } from "firebase/auth";
@@ -63,7 +64,7 @@ export default function Login() {
     }
   }, []);
 
-  // Send magic link via custom API
+  // Send magic link using Firebase's built‑in email
   const handleMagicLink = async (e) => {
     e.preventDefault();
     if (!email) {
@@ -74,13 +75,11 @@ export default function Login() {
     setError("");
     setMessage("");
     try {
-      const response = await fetch('/api/send-magic-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: true,
+      };
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
       window.localStorage.setItem("emailForSignIn", email);
       setMessage(`✨ Magic link sent to ${email}! Check your inbox (and spam folder).`);
       setEmail("");
