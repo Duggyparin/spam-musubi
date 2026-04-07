@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  sendSignInLinkToEmail, 
   isSignInWithEmailLink, 
   signInWithEmailLink 
 } from "firebase/auth";
@@ -17,6 +16,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [inAppBrowser, setInAppBrowser] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Detect in‑app browser
   useEffect(() => {
@@ -27,13 +27,19 @@ export default function Login() {
     setInAppBrowser(isFacebook || isInstagram || isMessenger);
   }, []);
 
-  // Handle the magic link when user returns to the app
+  // Show guide only once per browser
   useEffect(() => {
-    // Check if we have a sign-in email link in the URL
+    const hasSeenGuide = localStorage.getItem('magicLinkGuideSeen');
+    if (!hasSeenGuide) {
+      setShowGuide(true);
+    }
+  }, []);
+
+  // Handle magic link completion (when user returns from email)
+  useEffect(() => {
     if (isSignInWithEmailLink(auth, window.location.href)) {
       let storedEmail = window.localStorage.getItem("emailForSignIn");
       if (!storedEmail) {
-        // If email not stored, prompt user
         storedEmail = window.prompt("Please enter your email to complete sign in.");
       }
       if (storedEmail) {
@@ -57,6 +63,7 @@ export default function Login() {
     }
   }, []);
 
+  // Send magic link via custom API
   const handleMagicLink = async (e) => {
     e.preventDefault();
     if (!email) {
@@ -67,12 +74,13 @@ export default function Login() {
     setError("");
     setMessage("");
     try {
-      const actionCodeSettings = {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: true,
-      };
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      // Save email locally to complete sign-in later
+      const response = await fetch('/api/send-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
       window.localStorage.setItem("emailForSignIn", email);
       setMessage(`✨ Magic link sent to ${email}! Check your inbox (and spam folder).`);
       setEmail("");
@@ -115,9 +123,17 @@ export default function Login() {
               placeholder="Your email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
+              className="w-full pl-10 pr-10 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowGuide(true)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-amber-400"
+              title="How it works"
+            >
+              ❔
+            </button>
           </div>
 
           <button
@@ -128,16 +144,46 @@ export default function Login() {
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "📧 Send Magic Link"}
           </button>
         </form>
-
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate("/signup")}
-            className="text-white/40 text-sm hover:text-amber-400 transition-all"
-          >
-            Don't have an account? Sign Up →
-          </button>
-        </div>
       </div>
+
+      {/* Step‑by‑step guide modal (first‑time users) */}
+      {showGuide && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-amber-400/30 rounded-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="text-5xl mb-4">📧</div>
+              <h2 className="text-xl font-black text-amber-400 mb-3">How Magic Link Works</h2>
+              <div className="space-y-4 text-left text-white/80 text-sm">
+                <div className="flex gap-3 items-start">
+                  <span className="text-amber-400 font-bold">1.</span>
+                  <span>Enter your email address and tap <strong>Send Magic Link</strong>.</span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-amber-400 font-bold">2.</span>
+                  <span>Check your email inbox (and spam folder) for a link from us.</span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-amber-400 font-bold">3.</span>
+                  <span>Click the button in the email – you'll be logged in instantly.</span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-amber-400 font-bold">4.</span>
+                  <span>No password needed – ever. The link expires after one use.</span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowGuide(false);
+                  localStorage.setItem('magicLinkGuideSeen', 'true');
+                }}
+                className="mt-6 w-full bg-amber-400 text-black font-bold py-2 rounded-xl"
+              >
+                Got it, let's go 🍱
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
