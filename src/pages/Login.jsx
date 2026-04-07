@@ -160,7 +160,7 @@ export default function Login() {
                 </div>
                 <div className="flex gap-3 items-start">
                   <span className="text-amber-400 font-bold">2.</span>
-                  <span>Check your email inbox (and spam folder) for a link from us.</span>
+                  <span>Check your email inbox (and spam) for a link from us.</span>
                 </div>
                 <div className="flex gap-3 items-start">
                   <span className="text-amber-400 font-bold">3.</span>
