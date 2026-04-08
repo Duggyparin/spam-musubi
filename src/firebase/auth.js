@@ -58,7 +58,7 @@ export const getGoogleRedirectResult = async () => {
 export const signInWithGoogleProvider = async (isMobile = false, inAppBrowser = false) => {
   // Use redirect for mobile OR in-app browser
   if (isMobile || inAppBrowser) {
-    return await signInWithGoogleRedirect();
+    return await signInWithGooglePopup();
   } else {
     // Use popup for desktop
     return await signInWithGooglePopup();
