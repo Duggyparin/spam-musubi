@@ -17,7 +17,6 @@ export default function Login() {
   const [error, setError] = useState("");
   const [inAppBrowser, setInAppBrowser] = useState(false);
 
-  // Detect in‑app browser
   useEffect(() => {
     const ua = navigator.userAgent || navigator.vendor || window.opera;
     const isFacebook = ua.includes("FBAV") || ua.includes("FBAN");
@@ -26,9 +25,11 @@ export default function Login() {
     setInAppBrowser(isFacebook || isInstagram || isMessenger);
   }, []);
 
-  // Set persistence to local (keeps user logged in)
+  // CRITICAL: Set persistence to local BEFORE sign in
   useEffect(() => {
-    setPersistence(auth, browserLocalPersistence).catch(console.error);
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => console.log("✅ Persistence set to LOCAL"))
+      .catch(console.error);
   }, []);
 
   const handleGoogleLogin = async () => {
@@ -36,9 +37,11 @@ export default function Login() {
     setError("");
     try {
       const provider = new GoogleAuthProvider();
-      // Use redirect (not popup) – this works on mobile Safari
+      // Add custom parameters to help with mobile
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
       await signInWithRedirect(auth, provider);
-      // The page will redirect to Google; no further code runs here
     } catch (err) {
       console.error(err);
       setError(err.message);
