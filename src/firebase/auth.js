@@ -43,7 +43,7 @@ export const signInWithGoogleRedirect = async () => {
 // Get redirect result (call this when app loads after redirect)
 export const getGoogleRedirectResult = async () => {
   try {
-    const result = await getRedirectResult(auth);
+    const result = await getRedirectResult(auth, provider);
     if (result?.user) {
       return { user: result.user, error: null };
     }
