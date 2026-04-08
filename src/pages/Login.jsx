@@ -35,19 +35,26 @@ export default function Login() {
 
   // Handle redirect result (when user comes back from Google on mobile)
   useEffect(() => {
-    const handleRedirectResult = async () => {
+  const handleRedirectResult = async () => {
+    if (isMobile) setLoading(true);
+    setLoading(true); 
+    try {
       const { user, error } = await getGoogleRedirectResult();
       if (error) {
         console.error("Redirect error:", error);
         setError(error.message);
       }
       if (user) {
-        console.log("✅ User from redirect:", user.email);
         handleUserRedirect(user.email);
       }
-    };
-    handleRedirectResult();
-  }, []);
+    } catch (err) {
+      console.error("Unexpected error:", err);
+    } finally {
+      setLoading(false); 
+    }
+  };
+  handleRedirectResult();
+}, [isMobile]);
 
   const handleUserRedirect = (email) => {
     if (email === ADMIN_EMAIL) {
