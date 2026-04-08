@@ -1,23 +1,21 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink, 
-  signInWithEmailLink 
+  signInWithRedirect,
+  GoogleAuthProvider,
+  setPersistence,
+  browserLocalPersistence
 } from "firebase/auth";
 import { auth } from "../firebase/firebase";
-import { Mail, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [inAppBrowser, setInAppBrowser] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
 
   // Detect in‑app browser
   useEffect(() => {
@@ -28,65 +26,22 @@ export default function Login() {
     setInAppBrowser(isFacebook || isInstagram || isMessenger);
   }, []);
 
-  // Show guide only once per browser
+  // Set persistence to local (keeps user logged in)
   useEffect(() => {
-    const hasSeenGuide = localStorage.getItem('magicLinkGuideSeen');
-    if (!hasSeenGuide) {
-      setShowGuide(true);
-    }
+    setPersistence(auth, browserLocalPersistence).catch(console.error);
   }, []);
 
-  // Handle magic link completion (when user returns from email)
-  useEffect(() => {
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      let storedEmail = window.localStorage.getItem("emailForSignIn");
-      if (!storedEmail) {
-        storedEmail = window.prompt("Please enter your email to complete sign in.");
-      }
-      if (storedEmail) {
-        setLoading(true);
-        signInWithEmailLink(auth, storedEmail, window.location.href)
-          .then((result) => {
-            window.localStorage.removeItem("emailForSignIn");
-            const userEmail = result.user.email;
-            if (userEmail === ADMIN_EMAIL) {
-              window.location.replace("/admin-spammusubi");
-            } else {
-              window.location.replace("/dashboard");
-            }
-          })
-          .catch((err) => {
-            console.error(err);
-            setError("Invalid or expired link. Please request a new one.");
-            setLoading(false);
-          });
-      }
-    }
-  }, []);
-
-  // Send magic link using Firebase's built‑in email
-  const handleMagicLink = async (e) => {
-    e.preventDefault();
-    if (!email) {
-      setError("Please enter your email address.");
-      return;
-    }
+  const handleGoogleLogin = async () => {
     setLoading(true);
     setError("");
-    setMessage("");
     try {
-      const actionCodeSettings = {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: true,
-      };
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      window.localStorage.setItem("emailForSignIn", email);
-      setMessage(`✨ Magic link sent to ${email}! Check your inbox (and spam folder).`);
-      setEmail("");
+      const provider = new GoogleAuthProvider();
+      // Use redirect (not popup) – this works on mobile Safari
+      await signInWithRedirect(auth, provider);
+      // The page will redirect to Google; no further code runs here
     } catch (err) {
       console.error(err);
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -112,77 +67,25 @@ export default function Login() {
         )}
 
         {error && <div className="text-red-400 text-sm text-center animate-pulse mb-4">{error}</div>}
-        {message && <div className="text-green-400 text-sm text-center mb-4">{message}</div>}
 
-        <form onSubmit={handleMagicLink} className="space-y-4">
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="email"
-              placeholder="Your email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-xl bg-white/10 border border-white/20 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none text-white"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowGuide(true)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-amber-400"
-              title="How it works"
-            >
-              ❔
-            </button>
-          </div>
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-3 border border-white/20 disabled:opacity-50"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+            <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+            <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+            <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+          </svg>
+          {loading ? "Redirecting..." : "Sign in with Google"}
+        </button>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-amber-400 hover:bg-amber-300 text-black font-bold py-3 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "📧 Send Magic Link"}
-          </button>
-        </form>
+        <p className="text-white/30 text-xs text-center mt-6">
+          By continuing, you agree to our Terms of Service
+        </p>
       </div>
-
-      {/* Step‑by‑step guide modal (first‑time users) */}
-      {showGuide && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-amber-400/30 rounded-2xl max-w-md w-full p-6">
-            <div className="text-center">
-              <div className="text-5xl mb-4">📧</div>
-              <h2 className="text-xl font-black text-amber-400 mb-3">How Magic Link Works</h2>
-              <div className="space-y-4 text-left text-white/80 text-sm">
-                <div className="flex gap-3 items-start">
-                  <span className="text-amber-400 font-bold">1.</span>
-                  <span>Enter your email address and tap <strong>Send Magic Link</strong>.</span>
-                </div>
-                <div className="flex gap-3 items-start">
-                  <span className="text-amber-400 font-bold">2.</span>
-                  <span>Check your email inbox (and spam) for a link from us.</span>
-                </div>
-                <div className="flex gap-3 items-start">
-                  <span className="text-amber-400 font-bold">3.</span>
-                  <span>Click the button in the email – you'll be logged in instantly.</span>
-                </div>
-                <div className="flex gap-3 items-start">
-                  <span className="text-amber-400 font-bold">4.</span>
-                  <span>No password needed – ever. The link expires after one use.</span>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowGuide(false);
-                  localStorage.setItem('magicLinkGuideSeen', 'true');
-                }}
-                className="mt-6 w-full bg-amber-400 text-black font-bold py-2 rounded-xl"
-              >
-                Got it, let's go 🍱
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
