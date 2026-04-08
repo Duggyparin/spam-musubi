@@ -56,11 +56,6 @@ export const getGoogleRedirectResult = async () => {
 
 // Main wrapper - automatically chooses best method based on device
 export const signInWithGoogleProvider = async (isMobile = false, inAppBrowser = false) => {
-  // Use redirect for mobile OR in-app browser
-  if (isMobile || inAppBrowser) {
-    return await signInWithGoogleRedirect();
-  } else {
-    // Use popup for desktop
-    return await signInWithGooglePopup();
-  }
+  // Always use popup, even if on mobile or in-app browser
+  return await signInWithGooglePopup();
 };
