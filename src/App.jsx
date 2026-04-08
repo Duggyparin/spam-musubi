@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { auth } from "./firebase/firebase";
-import { onAuthStateChanged, getRedirectResult } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { getGoogleRedirectResult } from "./firebase/auth";
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -14,26 +15,27 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // FIRST: Handle redirect result (user coming back from Google)
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          console.log("✅ Redirect result user:", result.user.email);
-          setUser(result.user);
-          // Force redirect after a short delay to ensure state is set
-          setTimeout(() => {
-            if (result.user.email === ADMIN_EMAIL) {
-              window.location.href = "/admin-spammusubi";
-            } else {
-              window.location.href = "/dashboard";
-            }
-          }, 100);
-          return;
-        }
-      })
-      .catch((err) => console.error("❌ Redirect error:", err));
+    // Handle redirect result first
+    const handleRedirect = async () => {
+      const { user: redirectUser } = await getGoogleRedirectResult();
+      if (redirectUser) {
+        console.log("✅ Redirect user:", redirectUser.email);
+        setUser(redirectUser);
+        // Force redirect after state update
+        setTimeout(() => {
+          if (redirectUser.email === ADMIN_EMAIL) {
+            window.location.href = "/admin-spammusubi";
+          } else {
+            window.location.href = "/dashboard";
+          }
+        }, 100);
+        return;
+      }
+    };
+    
+    handleRedirect();
 
-    // SECOND: Listen for auth state changes
+    // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       console.log("📡 onAuthStateChanged:", currentUser?.email || "null");
       setUser(currentUser);

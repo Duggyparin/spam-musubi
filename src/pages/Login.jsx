@@ -1,15 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  signInWithPopup,
-  signInWithRedirect,
-  GoogleAuthProvider,
-  setPersistence,
-  browserLocalPersistence,
-  getRedirectResult
-} from "firebase/auth";
-import { auth } from "../firebase/firebase";
 import { Loader2 } from "lucide-react";
+import { 
+  signInWithGoogleProvider, 
+  getGoogleRedirectResult,
+  setAuthPersistence
+} from "../firebase/auth";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 
@@ -20,38 +16,37 @@ export default function Login() {
   const [inAppBrowser, setInAppBrowser] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Detect device type and browser
   useEffect(() => {
-    // Detect mobile and in-app browser
     const ua = navigator.userAgent || navigator.vendor || window.opera;
     const isFacebook = ua.includes("FBAV") || ua.includes("FBAN");
     const isInstagram = ua.includes("Instagram");
     const isMessenger = ua.includes("Messenger");
     setInAppBrowser(isFacebook || isInstagram || isMessenger);
     
-    // Detect mobile device
     const mobile = /iPhone|iPad|iPod|Android/i.test(ua);
     setIsMobile(mobile);
   }, []);
 
-  // Set persistence
+  // Set persistence when component mounts
   useEffect(() => {
-    setPersistence(auth, browserLocalPersistence)
-      .then(() => console.log("✅ Persistence set to LOCAL"))
-      .catch(console.error);
+    setAuthPersistence();
   }, []);
 
-  // Handle redirect result (for mobile fallback)
+  // Handle redirect result (when user comes back from Google on mobile)
   useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          console.log("✅ Redirect result user:", result.user.email);
-          handleUserRedirect(result.user.email);
-        }
-      })
-      .catch((err) => {
-        console.error("Redirect error:", err);
-      });
+    const handleRedirectResult = async () => {
+      const { user, error } = await getGoogleRedirectResult();
+      if (error) {
+        console.error("Redirect error:", error);
+        setError(error.message);
+      }
+      if (user) {
+        console.log("✅ User from redirect:", user.email);
+        handleUserRedirect(user.email);
+      }
+    };
+    handleRedirectResult();
   }, []);
 
   const handleUserRedirect = (email) => {
@@ -65,37 +60,24 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError("");
+    
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
+      const result = await signInWithGoogleProvider(isMobile, inAppBrowser);
       
-      // Use popup on desktop, redirect on mobile
-      if (!isMobile && !inAppBrowser) {
-        // Desktop: use popup (better experience)
-        const result = await signInWithPopup(auth, provider);
+      if (result.error) {
+        throw result.error;
+      }
+      
+      if (result.user) {
+        // Popup success (desktop)
         handleUserRedirect(result.user.email);
-      } else {
-        // Mobile or in-app browser: use redirect (more reliable)
-        await signInWithRedirect(auth, provider);
-        // The page will redirect; no further code runs here
       }
+      // If redirecting, the page will reload - no further action needed
+      
     } catch (err) {
-      console.error(err);
-      // If popup fails (e.g., blocked), fall back to redirect
-      if (err.code === 'auth/popup-blocked') {
-        try {
-          const provider = new GoogleAuthProvider();
-          await signInWithRedirect(auth, provider);
-        } catch (redirectErr) {
-          setError(redirectErr.message);
-          setLoading(false);
-        }
-      } else {
-        setError(err.message);
-        setLoading(false);
-      }
+      console.error("Google sign-in error:", err);
+      setError(err.message);
+      setLoading(false);
     }
   };
 
