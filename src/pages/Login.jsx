@@ -14,8 +14,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [inAppBrowser, setInAppBrowser] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
+  const [isMobile, setIsMobile] = useState(null);
   // Detect device type and browser
   useEffect(() => {
     const ua = navigator.userAgent || navigator.vendor || window.opera;
@@ -35,24 +34,30 @@ export default function Login() {
 
   // Handle redirect result (when user comes back from Google on mobile)
   useEffect(() => {
+  if (isMobile === null) return; // wait until detected
+
   const handleRedirectResult = async () => {
-    if (isMobile) setLoading(true);
-    setLoading(true); 
+    setLoading(true);
+
     try {
       const { user, error } = await getGoogleRedirectResult();
+
       if (error) {
         console.error("Redirect error:", error);
         setError(error.message);
       }
+
       if (user) {
         handleUserRedirect(user.email);
       }
+
     } catch (err) {
       console.error("Unexpected error:", err);
     } finally {
-      setLoading(false); 
+      setLoading(false);
     }
   };
+
   handleRedirectResult();
 }, [isMobile]);
 
