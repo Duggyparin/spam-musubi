@@ -37,7 +37,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const conversationId = getConversationId(currentUser.uid, otherUserId);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Auto‑scroll to bottom when messages change or when conversation is opened
+  // Auto‑scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, conversationId]);
@@ -245,23 +245,39 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
 
   const handleCameraUpload = async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!file) {
+      console.log("❌ No file selected");
+      return;
+    }
     
+    console.log("📸 Step 1: File selected", { name: file.name, type: file.type, size: file.size });
     setUploadingImage(true);
+    
     try {
+      console.log("📸 Step 2: Compressing image...");
       const compressedBlob = await compressImage(file);
+      console.log("📸 Step 3: Compressed size:", compressedBlob.size);
+      
       const formData = new FormData();
       formData.append('file', compressedBlob, 'photo.jpg');
-      formData.append('upload_preset', 'chat_uploads'); // Make sure this preset exists and is Unsigned
+      formData.append('upload_preset', 'chat_uploads');
       
+      console.log("📸 Step 4: Uploading to Cloudinary...");
       const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
         method: 'POST',
         body: formData
       });
       
       const data = await response.json();
+      console.log("📸 Step 5: Cloudinary response", data);
       
       if (data.secure_url) {
+        console.log("📸 Step 6: Cloudinary success, URL:", data.secure_url);
+        console.log("📸 Step 7: Saving to Firestore...");
+        console.log("   Conversation ID:", conversationId);
+        console.log("   Current user UID:", currentUser.uid);
+        console.log("   Other user UID:", otherUserId);
+        
         await addDoc(collection(db, "conversations", conversationId, "messages"), {
           imageUrl: data.secure_url,
           text: "",
@@ -272,12 +288,14 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           timestamp: serverTimestamp(),
           read: false
         });
+        console.log("📸 Step 8: Firestore save completed ✅");
       } else {
+        console.error("📸 Cloudinary error: no secure_url", data);
         alert("Upload failed: " + (data.error?.message || "Unknown error"));
       }
     } catch (error) {
-      console.error("Upload error:", error);
-      alert("Failed to upload image. Please try again.");
+      console.error("📸 Upload error:", error);
+      alert("Failed to upload image. Check console.");
     } finally {
       setUploadingImage(false);
     }
