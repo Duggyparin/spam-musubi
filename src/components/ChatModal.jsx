@@ -210,15 +210,59 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return;
   }
   
-  console.log("File selected:", file.name, file.type, file.size);
+  console.log("Original file size:", file.size, "bytes");
+  console.log("File type:", file.type);
   
   setUploadingImage(true);
   
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', 'chat_uploads'); // Make sure this matches
+  // Compress the image before uploading
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            resolve(blob);
+          }, 'image/jpeg', 0.7);
+        };
+      };
+    });
+  };
   
   try {
+    const compressedBlob = await compressImage(file);
+    console.log("Compressed file size:", compressedBlob.size, "bytes");
+    
+    const formData = new FormData();
+    formData.append('file', compressedBlob, 'photo.jpg');
+    formData.append('upload_preset', 'chat_uploads');
+    
     const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
       method: 'POST',
       body: formData
@@ -228,8 +272,10 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     console.log("Cloudinary response:", data);
     
     if (data.secure_url) {
+      console.log("✅ Upload success! URL:", data.secure_url);
       await sendImageMessage(data.secure_url);
     } else {
+      console.error("Upload failed:", data.error);
       alert("Upload failed: " + (data.error?.message || "Unknown error"));
     }
   } catch (error) {
