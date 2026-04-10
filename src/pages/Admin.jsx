@@ -11,7 +11,7 @@ import StockManager from "../components/StockManager";
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const TODAY = new Date().toISOString().split("T")[0];
 const ARCHIVE_SECRET = "mySecret123";
-const ADMIN_UID = "Ptyo15VS93VJxT4PS6POmwpQQfC2";
+const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
 const PRODUCTS = [
   { id: "classic", name: "Classic Spam Musubi", price: 35 },
