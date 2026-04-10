@@ -37,7 +37,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const conversationId = getConversationId(currentUser.uid, otherUserId);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Auto‑scroll to bottom
+  // Auto‑scroll to bottom when messages change or when conversation is opened
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, conversationId]);
@@ -245,39 +245,23 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
 
   const handleCameraUpload = async (e) => {
     const file = e.target.files[0];
-    if (!file) {
-      console.log("❌ No file selected");
-      return;
-    }
+    if (!file) return;
     
-    console.log("📸 Step 1: File selected", { name: file.name, type: file.type, size: file.size });
     setUploadingImage(true);
-    
     try {
-      console.log("📸 Step 2: Compressing image...");
       const compressedBlob = await compressImage(file);
-      console.log("📸 Step 3: Compressed size:", compressedBlob.size);
-      
       const formData = new FormData();
       formData.append('file', compressedBlob, 'photo.jpg');
-      formData.append('upload_preset', 'chat_uploads');
+      formData.append('upload_preset', 'chat_uploads'); // Must be an unsigned preset
       
-      console.log("📸 Step 4: Uploading to Cloudinary...");
       const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
         method: 'POST',
         body: formData
       });
       
       const data = await response.json();
-      console.log("📸 Step 5: Cloudinary response", data);
       
       if (data.secure_url) {
-        console.log("📸 Step 6: Cloudinary success, URL:", data.secure_url);
-        console.log("📸 Step 7: Saving to Firestore...");
-        console.log("   Conversation ID:", conversationId);
-        console.log("   Current user UID:", currentUser.uid);
-        console.log("   Other user UID:", otherUserId);
-        
         await addDoc(collection(db, "conversations", conversationId, "messages"), {
           imageUrl: data.secure_url,
           text: "",
@@ -288,14 +272,12 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           timestamp: serverTimestamp(),
           read: false
         });
-        console.log("📸 Step 8: Firestore save completed ✅");
       } else {
-        console.error("📸 Cloudinary error: no secure_url", data);
         alert("Upload failed: " + (data.error?.message || "Unknown error"));
       }
     } catch (error) {
-      console.error("📸 Upload error:", error);
-      alert("Failed to upload image. Check console.");
+      console.error("Upload error:", error);
+      alert("Failed to upload image. Please try again.");
     } finally {
       setUploadingImage(false);
     }
@@ -346,6 +328,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               return (
                 <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
+                    {/* Image – always show if imageUrl exists */}
                     {msg.imageUrl && (
                       <img 
                         src={msg.imageUrl} 
@@ -354,7 +337,10 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
                         onClick={() => window.open(msg.imageUrl, '_blank')}
                       />
                     )}
-                    {msg.text && <p className="text-sm break-words">{msg.text}</p>}
+                    {/* Text – only if present */}
+                    {msg.text && msg.text.trim() !== "" && (
+                      <p className="text-sm break-words">{msg.text}</p>
+                    )}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <p className="text-[10px] opacity-60">{timeStr}</p>
                       {isMyMessage && msg.read === true && <span className="text-[10px] text-green-400">✓✓ Seen</span>}
