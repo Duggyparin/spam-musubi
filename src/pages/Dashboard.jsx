@@ -1000,6 +1000,36 @@ export default function Dashboard() {
     };
     fetchStockLimitStatus();
   }, []);
+  
+// Auto-create conversation with admin when customer loads dashboard
+useEffect(() => {
+  if (!user || user.email === ADMIN_EMAIL) return; // Only for customers
+  
+  const createConversation = async () => {
+    try {
+      const adminUid = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2"; // Your admin UID
+      const conversationId = [user.uid, adminUid].sort().join('_');
+      const metaRef = doc(db, "conversations_meta", conversationId);
+      const metaSnap = await getDoc(metaRef);
+      
+      if (!metaSnap.exists()) {
+        await setDoc(metaRef, {
+          participants: [user.uid, adminUid],
+          lastMessage: "",
+          lastUpdated: serverTimestamp(),
+        });
+        console.log("✅ Auto-created conversation for customer:", user.email);
+      }
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+    }
+  };
+  
+  createConversation();
+}, [user]);
+
+
+
 
   useEffect(() => {
     const fetchLoyaltyData = async () => {
