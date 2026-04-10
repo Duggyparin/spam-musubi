@@ -825,10 +825,10 @@ export default function Admin() {
                 💬
               </button>
               {adminUnreadCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {adminUnreadCount > 9 ? "9+" : adminUnreadCount}
-                </span>
-              )}
+  <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+    {adminUnreadCount > 9 ? "9+" : adminUnreadCount}
+  </span>
+)}
             </div>
             <button onClick={() => setShowAdminProfile(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">
               👤 Profile
