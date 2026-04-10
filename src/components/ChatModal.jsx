@@ -204,40 +204,43 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   };
 
   const handleCameraUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  if (!file.type.startsWith('image/')) {
+    alert('Please select an image file');
+    return;
+  }
+  
+  setUploadingImage(true);
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'spam_musubi_preset');
+  
+  try {
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/dvbbusgra/image/upload`,
+      { method: 'POST', body: formData }
+    );
     
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
-      return;
+    const data = await response.json();
+    console.log("📸 Cloudinary response:", data); // ← ADD THIS
+    
+    if (data.secure_url) {
+      console.log("✅ Upload success! URL:", data.secure_url);
+      await sendImageMessage(data.secure_url);
+    } else {
+      console.error("❌ Upload failed:", data.error);
+      alert("Upload failed: " + (data.error?.message || "Unknown error"));
     }
-    
-    setUploadingImage(true);
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', 'spam_musubi_preset');
-    
-    try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/dvbbusgra/image/upload`,
-        { method: 'POST', body: formData }
-      );
-      
-      const data = await response.json();
-      
-      if (data.secure_url) {
-        sendImageMessage(data.secure_url);
-      } else {
-        throw new Error('Upload failed');
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload image. Please try again.');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
+  } catch (error) {
+    console.error('❌ Upload error:', error);
+    alert('Failed to upload image. Please try again.');
+  } finally {
+    setUploadingImage(false);
+  }
+};
 
   const sendImageMessage = async (imageUrl) => {
     try {
