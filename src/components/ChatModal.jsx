@@ -34,6 +34,8 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
   const otherUserId = userId;
   const conversationId = getConversationId(currentUser.uid, otherUserId);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
 
   const formatLastSeen = (lastSeenISO) => {
     if (!lastSeenISO) return "Recently";
@@ -222,9 +224,60 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
+
+  const handleCameraUpload = () => {
+  if (!window.cloudinary) {
+    alert("Cloudinary widget not loaded. Please refresh the page.");
+    return;
+  }
+
+  setUploadingImage(true);
+  window.cloudinary.openUploadWidget(
+    {
+      cloudName: "YOUR_CLOUD_NAME", // Replace with your actual cloud name from Cloudinary
+      uploadPreset: "YOUR_UPLOAD_PRESET", // Replace with your actual upload preset
+      sources: ["camera", "local"],
+      multiple: false,
+      maxFileSize: 5000000,
+    },
+    (error, result) => {
+      setUploadingImage(false);
+      if (error) {
+        console.error("Upload error:", error);
+        alert("Failed to upload image.");
+        return;
+      }
+      if (result && result.event === "success") {
+        const imageUrl = result.info.secure_url;
+        sendImageMessage(imageUrl);
+      }
+    }
+  );
+};
+
+const sendImageMessage = async (imageUrl) => {
+  try {
+    const messageData = {
+      text: "📷 Sent a photo",
+      imageUrl: imageUrl,
+      sender: isAdmin ? "admin" : "customer",
+      senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
+      fromUid: currentUser.uid,
+      toUid: otherUserId,
+      timestamp: serverTimestamp(),
+      read: false
+    };
+    await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
+  } catch (error) {
+    console.error("Send image error:", error);
+    alert("Failed to send image.");
+  }
+};
+
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md flex flex-col h-[600px]">
+        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Avatar name={otherName} imageUrl={avatarToShow} />
@@ -241,6 +294,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
+        {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
@@ -251,7 +305,15 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               return (
                 <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
-                    <p className="text-sm break-words">{msg.text}</p>
+                    {msg.imageUrl && (
+                      <img 
+                        src={msg.imageUrl} 
+                        alt="Shared" 
+                        className="max-w-full rounded-lg mb-2 cursor-pointer"
+                        onClick={() => window.open(msg.imageUrl, '_blank')}
+                      />
+                    )}
+                    {msg.text && <p className="text-sm break-words">{msg.text}</p>}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <p className="text-[10px] opacity-60">{timeStr}</p>
                       {isMyMessage && msg.read === true && <span className="text-[10px] text-green-400">✓✓ Seen</span>}
@@ -262,9 +324,9 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               );
             })
           )}
-          <div ref={messagesEndRef} />
         </div>
 
+        {/* Input Area with Camera Button - ONLY ONE */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
@@ -274,6 +336,14 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
             placeholder="Type a message..."
             className="flex-1 px-4 py-2 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white text-sm"
           />
+          <button
+            onClick={handleCameraUpload}
+            disabled={uploadingImage}
+            className="px-4 py-2 rounded-xl bg-green-500 text-white font-bold hover:bg-green-400 disabled:opacity-50"
+            title="Take a photo"
+          >
+            📷
+          </button>
           <button onClick={sendMessage} disabled={sending} className="px-4 py-2 rounded-xl bg-amber-400 text-black font-bold hover:bg-amber-300 disabled:opacity-50">
             Send
           </button>

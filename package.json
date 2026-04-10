@@ -17,6 +17,7 @@
     "firebase-functions": "^7.2.2",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
+    "react-cloudinary-upload-widget-v2": "^1.1.3",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.1",
     "recharts": "^3.8.0",
