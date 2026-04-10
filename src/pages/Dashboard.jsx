@@ -8,6 +8,11 @@ import { requestNotificationPermission, onMessageListener } from "../services/no
 import PublicReviews from "../components/PublicReviews";
 import NotificationCenter from "../components/NotificationCenter";
 
+
+const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
+const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
+
+
 // ----- PRODUCTS -----
 const PRODUCTS = [
   { id: "classic", name: "Classic Spam Musubi", desc: "Premium spam glazed with our signature teriyaki sauce.", price: 35, tag: "Best Seller", image: "/musubi.png" },
