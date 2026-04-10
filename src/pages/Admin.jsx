@@ -82,8 +82,8 @@ const Avatar = ({ name }) => {
   );
 };
 
-// Prep Summary Modal
-const PrepSummaryModal = ({ reservations, onClose }) => {
+// ========== NEW: Prep Summary Section (inline) ==========
+const PrepSummarySection = ({ confirmedOrders }) => {
   const productData = {};
   PRODUCTS.forEach(p => {
     productData[p.id] = {
@@ -93,7 +93,7 @@ const PrepSummaryModal = ({ reservations, onClose }) => {
     };
   });
 
-  reservations.forEach(res => {
+  confirmedOrders.forEach(res => {
     if (res.items && res.items.length) {
       res.items.forEach(item => {
         const pid = item.productId;
@@ -120,39 +120,93 @@ const PrepSummaryModal = ({ reservations, onClose }) => {
     }
   });
 
+  const hasData = Object.values(productData).some(p => p.totalQuantity > 0);
+  if (!hasData) return null;
+
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
-      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-5xl p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-black text-amber-400">📋 Prep Summary</h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Object.values(productData).filter(p => p.totalQuantity > 0).map(product => (
-            <div key={product.name} className="bg-black/40 border border-white/10 rounded-2xl p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-black text-amber-400">{product.name}</h3>
-                <span className="text-2xl font-black text-white">{product.totalQuantity}</span>
-              </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {product.customers.map((cust, idx) => (
-                  <div key={idx} className="bg-white/5 rounded-lg p-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-white">{cust.name}</span>
-                      <span className="text-amber-400">x{cust.quantity}</span>
-                    </div>
-                    <div className="text-white/40 text-xs flex justify-between mt-1">
-                      <span>{cust.pickupTime}</span>
-                      <a href={`tel:${cust.contact}`} className="hover:text-amber-400 transition-all">
-                    📞 {cust.contact}
-                    </a>
-                    </div>
+    <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
+      <h2 className="text-xl font-black text-amber-400 mb-4">📋 Prep Summary (Confirmed Orders)</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {Object.values(productData).filter(p => p.totalQuantity > 0).map(product => (
+          <div key={product.name} className="bg-black/40 border border-white/10 rounded-2xl p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-black text-amber-400">{product.name}</h3>
+              <span className="text-2xl font-black text-white">{product.totalQuantity}</span>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {product.customers.map((cust, idx) => (
+                <div key={idx} className="bg-white/5 rounded-lg p-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-white">{cust.name}</span>
+                    <span className="text-amber-400">x{cust.quantity}</span>
                   </div>
-                ))}
+                  <div className="text-white/40 text-xs flex justify-between mt-1">
+                    <span>{cust.pickupTime}</span>
+                    <a href={`tel:${cust.contact}`} className="hover:text-amber-400 transition-all">
+                      📞 {cust.contact}
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ========== NEW: Confirmed Customers by Pickup Time ==========
+const ConfirmedCustomersByTime = ({ confirmedOrders }) => {
+  if (confirmedOrders.length === 0) return null;
+
+  // Sort by pickup time (convert to comparable minutes)
+  const getTimeInMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return 0;
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const period = match[3].toUpperCase();
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  };
+
+  const sorted = [...confirmedOrders].sort((a, b) => {
+    const timeA = getTimeInMinutes(a.pickupTime);
+    const timeB = getTimeInMinutes(b.pickupTime);
+    return timeA - timeB;
+  });
+
+  return (
+    <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
+      <h2 className="text-xl font-black text-amber-400 mb-4">✅ Confirmed Customers (by Pickup Time)</h2>
+      <div className="space-y-4">
+        {sorted.map((order) => {
+          // Build order summary string
+          let itemsSummary = "";
+          if (order.items && order.items.length) {
+            itemsSummary = order.items.map(item => `${item.productName} x${item.quantity}`).join(', ');
+          } else {
+            itemsSummary = `Classic Spam Musubi x${order.quantity || 1}`;
+          }
+          return (
+            <div key={order.id} className="bg-white/5 rounded-xl p-4 flex flex-wrap justify-between items-center gap-3">
+              <div className="flex-1 min-w-[150px]">
+                <div className="text-amber-400 font-bold text-lg">{order.pickupTime}</div>
+                <div className="text-white font-black text-base">{order.fullName}</div>
+                <div className="text-white/60 text-sm">{itemsSummary}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-amber-400 font-black text-xl">₱{order.totalPrice}</div>
+                <a href={`tel:${order.contactNumber}`} className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1 justify-end">
+                  📞 {order.contactNumber}
+                </a>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -699,6 +753,9 @@ export default function Admin() {
     return acc;
   }, {});
 
+  // ========== PREPARE DATA FOR NEW SECTIONS ==========
+  const confirmedOrders = reservations.filter(r => r.status === "confirmed");
+
   if (!user) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-6">
       <div className="text-center">
@@ -734,6 +791,7 @@ export default function Admin() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Toast toasts={toasts} removeToast={removeToast} />
 
+      {/* Keep original Prep Summary Modal (optional, but we'll keep it as is) */}
       {showPrepSummary && (
         <PrepSummaryModal reservations={reservations.filter(r => r.status === "confirmed")} onClose={() => setShowPrepSummary(false)} />
       )}
@@ -752,7 +810,7 @@ export default function Admin() {
             <button onClick={handleArchiveAll} disabled={archiving} className="text-xs border border-red-400/50 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-400/10 transition-all disabled:opacity-50">{archiving ? "Archiving..." : "🗑️ CLEAR ALL"}</button>
             <button onClick={() => { setShowAnalytics(true); fetchAnalytics(); }} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">📊 Market Analytics</button>
             <button onClick={() => { setShowLoyalty(true); fetchLoyaltyCustomers(); }} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">⭐ Loyalty</button>
-            <button onClick={() => setShowPrepSummary(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">📋 Prep Summary</button>
+            <button onClick={() => setShowPrepSummary(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">📋 Prep Summary (Modal)</button>
             <button onClick={() => setShowStockManager(true)} className="text-xs border border-amber-400/50 text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 transition-all">📦 Stock Manager</button>
             <button onClick={toggleSoldOut} disabled={togglingSoldOut} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isSoldOut ? "bg-red-600 text-white hover:bg-red-700" : "bg-green-600 text-white hover:bg-green-700"}`}>{togglingSoldOut ? "..." : (isSoldOut ? "🚫 SOLD OUT" : "✅ ACCEPTING ORDERS")}</button>
             <button onClick={toggleStockLimit} disabled={togglingStockLimit} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${isStockLimit ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-gray-600 text-white hover:bg-gray-700"}`}>{togglingStockLimit ? "..." : (isStockLimit ? "⚠️ STOCK LIMIT" : "📦 STOCK OK")}</button>
@@ -780,7 +838,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Archives Modal */}
+      {/* Archives Modal (unchanged) */}
       {showArchives && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
           <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-3xl p-6 mb-8">
@@ -834,7 +892,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Loyalty Modal */}
+      {/* Loyalty Modal (unchanged) */}
       {showLoyalty && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
           <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-3xl p-6 mb-8">
@@ -868,7 +926,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Market Analytics Modal */}
+      {/* Market Analytics Modal (unchanged) */}
       {showAnalytics && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
           <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-4xl p-6 mb-8">
@@ -969,7 +1027,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Reset Confirmation Modal */}
+      {/* Reset Confirmation Modal (unchanged) */}
       {showResetConfirm && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center px-4">
           <div className="bg-[#111] border border-red-400/30 rounded-2xl w-full max-w-md p-6">
@@ -1013,6 +1071,13 @@ export default function Admin() {
           </div>
         ) : (
           <>
+            {/* ========== NEW: Prep Summary Section (inline) ========== */}
+            <PrepSummarySection confirmedOrders={confirmedOrders} />
+
+            {/* ========== NEW: Confirmed Customers by Pickup Time ========== */}
+            <ConfirmedCustomersByTime confirmedOrders={confirmedOrders} />
+
+            {/* Original stats cards */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
               {[
                 { label: "Total Orders", value: stats.total, color: "text-white", icon: "🍱", bg: "bg-white/5" },
@@ -1030,6 +1095,7 @@ export default function Admin() {
               ))}
             </div>
 
+            {/* Original charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-black/40 border border-white/10 rounded-2xl p-6">
                 <h3 className="text-lg font-black text-amber-400 mb-4">📊 Order Status</h3>
@@ -1061,6 +1127,7 @@ export default function Admin() {
               </div>
             </div>
 
+            {/* Original search and filter */}
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
               <input type="text" placeholder="🔍 Search by name, email or number..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 focus:border-amber-400 focus:outline-none text-white text-sm" />
               <div className="flex gap-2 flex-wrap">
@@ -1074,6 +1141,7 @@ export default function Admin() {
               </div>
             </div>
 
+            {/* Original reservations list */}
             <div className="space-y-4">
               {filtered.map((r) => {
                 const isExpanded = expandedId === r.id;
@@ -1188,3 +1256,79 @@ export default function Admin() {
     </div>
   );
 }
+
+// Keep the original PrepSummaryModal (still used by the button)
+const PrepSummaryModal = ({ reservations, onClose }) => {
+  const productData = {};
+  PRODUCTS.forEach(p => {
+    productData[p.id] = {
+      name: p.name,
+      totalQuantity: 0,
+      customers: []
+    };
+  });
+
+  reservations.forEach(res => {
+    if (res.items && res.items.length) {
+      res.items.forEach(item => {
+        const pid = item.productId;
+        if (productData[pid]) {
+          productData[pid].totalQuantity += item.quantity;
+          productData[pid].customers.push({
+            name: res.fullName,
+            quantity: item.quantity,
+            pickupTime: `${res.pickupDate} | ${res.pickupSlot} — ${res.pickupTime}`,
+            contact: res.contactNumber,
+            orderId: res.id
+          });
+        }
+      });
+    } else {
+      productData.classic.totalQuantity += (res.quantity || 1);
+      productData.classic.customers.push({
+        name: res.fullName,
+        quantity: (res.quantity || 1),
+        pickupTime: `${res.pickupSlot} — ${res.pickupTime}`,
+        contact: res.contactNumber,
+        orderId: res.id
+      });
+    }
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
+      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-5xl p-6 mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-black text-amber-400">📋 Prep Summary</h2>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Object.values(productData).filter(p => p.totalQuantity > 0).map(product => (
+            <div key={product.name} className="bg-black/40 border border-white/10 rounded-2xl p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-black text-amber-400">{product.name}</h3>
+                <span className="text-2xl font-black text-white">{product.totalQuantity}</span>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {product.customers.map((cust, idx) => (
+                  <div key={idx} className="bg-white/5 rounded-lg p-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-white">{cust.name}</span>
+                      <span className="text-amber-400">x{cust.quantity}</span>
+                    </div>
+                    <div className="text-white/40 text-xs flex justify-between mt-1">
+                      <span>{cust.pickupTime}</span>
+                      <a href={`tel:${cust.contact}`} className="hover:text-amber-400 transition-all">
+                        📞 {cust.contact}
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
