@@ -4,7 +4,7 @@ import { collection, query, orderBy, getDocs, doc, getDoc, limit, where, onSnaps
 import ChatModal from "./ChatModal";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
-const ADMIN_UID = "6psQUodrsfZBKHzNzX29aTLkV4s2"; // Your current admin UID
+const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2"; // Updated to your actual UID
 
 const Avatar = ({ name, imageUrl, online }) => {
   if (imageUrl) {
@@ -64,7 +64,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
             online = userDoc.data().online === true;
           } else {
             console.warn(`User document missing for ${otherUserId}`);
-            userName = "Customer";
+            userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
           }
         } catch (e) {
           console.error("Error fetching user details:", e);
@@ -86,7 +86,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
             const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
             const isRead = lastMsg.read === true;
             unread = isFromOther && !isRead;
-            console.log(`Conversation with ${userName}: unread = ${unread} (sender: ${lastMsg.sender}, read: ${lastMsg.read})`);
           } else {
             unread = false;
           }
@@ -103,33 +102,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           lastMessage,
           lastTimestamp: data.lastUpdated,
           unread,
-        });
-      }
-
-      // 🔧 For customers: if no conversations exist, add a placeholder for admin
-      if (!isAdmin && convList.length === 0) {
-        let adminName = "Owner";
-        let adminAvatar = null;
-        let adminOnline = false;
-        try {
-          const adminDoc = await getDoc(doc(db, "users", ADMIN_UID));
-          if (adminDoc.exists()) {
-            adminName = adminDoc.data().fullName || "Owner";
-            adminAvatar = adminDoc.data().avatarUrl || null;
-            adminOnline = adminDoc.data().online === true;
-          }
-        } catch(e) {
-          console.error("Error fetching admin details:", e);
-        }
-        convList.push({
-          userId: ADMIN_UID,
-          userName: adminName,
-          userEmail: ADMIN_EMAIL,
-          userAvatar: adminAvatar,
-          online: adminOnline,
-          lastMessage: "Start a conversation",
-          lastTimestamp: null,
-          unread: false,
         });
       }
 

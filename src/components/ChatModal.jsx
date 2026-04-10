@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
 import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
+const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2"; // Updated to your actual UID
 const DEFAULT_ADMIN_AVATAR = "https://i.pravatar.cc/150?img=7";
 
 const Avatar = ({ name, imageUrl }) => {
@@ -66,26 +68,27 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchAdminData();
   }, []);
 
- useEffect(() => {
-  if (!conversationId) return;
-  const initConversation = async () => {
-    try {
-      const metaRef = doc(db, "conversations_meta", conversationId);
-      const metaSnap = await getDoc(metaRef);
-      if (!metaSnap.exists()) {
-        await setDoc(metaRef, {
-          participants: [currentUser.uid, otherUserId],
-          lastMessage: "",
-          lastUpdated: serverTimestamp(),
-        });
-        console.log("✅ Auto-created conversation", conversationId);
+  // ✅ AUTO-CREATE CONVERSATION IF IT DOESN'T EXIST (THIS IS KEY)
+  useEffect(() => {
+    if (!conversationId) return;
+    const initConversation = async () => {
+      try {
+        const metaRef = doc(db, "conversations_meta", conversationId);
+        const metaSnap = await getDoc(metaRef);
+        if (!metaSnap.exists()) {
+          await setDoc(metaRef, {
+            participants: [currentUser.uid, otherUserId],
+            lastMessage: "",
+            lastUpdated: serverTimestamp(),
+          });
+          console.log("✅ Auto-created conversation", conversationId);
+        }
+      } catch (err) {
+        console.error("Auto-create failed:", err);
       }
-    } catch (err) {
-      console.error("Auto-create failed:", err);
-    }
-  };
-  initConversation();
-}, [conversationId]);
+    };
+    initConversation();
+  }, [conversationId, currentUser.uid, otherUserId]);
 
   // Real-time online status for other user
   useEffect(() => {
