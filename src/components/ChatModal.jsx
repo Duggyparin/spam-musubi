@@ -244,13 +244,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
 
   const handleCameraUpload = async (e) => {
     const file = e.target.files[0];
-    if (!file) {
-      console.log("No file selected");
-      return;
-    }
-    
-    console.log("Original file size:", file.size, "bytes");
-    console.log("File type:", file.type);
+    if (!file) return;
     
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
@@ -260,12 +254,14 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     setUploadingImage(true);
     
     try {
+      // Compress the image
       const compressedBlob = await compressImage(file);
-      console.log("Compressed file size:", compressedBlob.size, "bytes");
+      console.log("Compressed size:", compressedBlob.size);
       
+      // Upload to Cloudinary
       const formData = new FormData();
       formData.append('file', compressedBlob, 'photo.jpg');
-      formData.append('upload_preset', 'spam_musubi_preset');
+      formData.append('upload_preset', 'chat_uploads');
       
       const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
         method: 'POST',
@@ -276,10 +272,8 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       console.log("Cloudinary response:", data);
       
       if (data.secure_url) {
-        console.log("✅ Upload success! URL:", data.secure_url);
         await sendImageMessage(data.secure_url);
       } else {
-        console.error("Upload failed:", data.error);
         alert("Upload failed: " + (data.error?.message || "Unknown error"));
       }
     } catch (error) {
