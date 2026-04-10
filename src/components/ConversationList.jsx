@@ -4,7 +4,7 @@ import { collection, query, orderBy, getDocs, doc, getDoc, limit, where, onSnaps
 import ChatModal from "./ChatModal";
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
-const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2"; // Updated to your actual UID
+const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
 const Avatar = ({ name, imageUrl, online }) => {
   if (imageUrl) {
@@ -50,7 +50,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
         if (!otherUserId) continue;
 
-        // Fetch other user's details
         let userName = "User";
         let userEmail = "";
         let avatarUrl = null;
@@ -70,7 +69,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           console.error("Error fetching user details:", e);
         }
 
-        // Fetch last message to determine read status
         let lastMessage = data.lastMessage || "";
         let unread = false;
         try {
