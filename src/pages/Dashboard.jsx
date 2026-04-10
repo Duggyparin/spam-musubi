@@ -682,6 +682,38 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, orderDetails }) => {
   );
 };
 
+// Online/offline presence for customer
+useEffect(() => {
+  if (!user) return;
+  const userStatusRef = doc(db, "users", user.uid);
+  
+  // Set online when dashboard loads
+  setDoc(userStatusRef, { 
+    online: true, 
+    lastSeen: new Date().toISOString() 
+  }, { merge: true });
+  
+  // Set offline when page closes or refreshes
+  const handleBeforeUnload = () => {
+    setDoc(userStatusRef, { 
+      online: false, 
+      lastSeen: new Date().toISOString() 
+    }, { merge: true });
+  };
+  window.addEventListener("beforeunload", handleBeforeUnload);
+  
+  // Clean up when component unmounts
+  return () => {
+    setDoc(userStatusRef, { 
+      online: false, 
+      lastSeen: new Date().toISOString() 
+    }, { merge: true });
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+  };
+}, [user]);
+
+
+
 // ========== NOTIFICATION GUIDE COMPONENT ==========
 const NotificationGuide = () => {
   const [showGuide, setShowGuide] = useState(false);
