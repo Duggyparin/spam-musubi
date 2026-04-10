@@ -203,19 +203,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
- const handleCameraUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) {
-    console.log("No file selected");
-    return;
-  }
-  
-  console.log("Original file size:", file.size, "bytes");
-  console.log("File type:", file.type);
-  
-  setUploadingImage(true);
-  
-  // Compress the image before uploading
+  // Compress image function
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -225,20 +213,19 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1200;
           let width = img.width;
           let height = img.height;
+          const MAX_SIZE = 1200;
           
           if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
+            if (width > MAX_SIZE) {
+              height = Math.round((height * MAX_SIZE) / width);
+              width = MAX_SIZE;
             }
           } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
+            if (height > MAX_SIZE) {
+              width = Math.round((width * MAX_SIZE) / height);
+              height = MAX_SIZE;
             }
           }
           
@@ -249,42 +236,59 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           
           canvas.toBlob((blob) => {
             resolve(blob);
-          }, 'image/jpeg', 0.7);
+          }, 'image/jpeg', 0.8);
         };
       };
     });
   };
-  
-  try {
-    const compressedBlob = await compressImage(file);
-    console.log("Compressed file size:", compressedBlob.size, "bytes");
-    
-    const formData = new FormData();
-    formData.append('file', compressedBlob, 'photo.jpg');
-    formData.append('upload_preset', 'chat_uploads');
-    
-    const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const data = await response.json();
-    console.log("Cloudinary response:", data);
-    
-    if (data.secure_url) {
-      console.log("✅ Upload success! URL:", data.secure_url);
-      await sendImageMessage(data.secure_url);
-    } else {
-      console.error("Upload failed:", data.error);
-      alert("Upload failed: " + (data.error?.message || "Unknown error"));
+
+  const handleCameraUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      console.log("No file selected");
+      return;
     }
-  } catch (error) {
-    console.error('Upload error:', error);
-    alert('Failed to upload image. Please try again.');
-  } finally {
-    setUploadingImage(false);
-  }
-};
+    
+    console.log("Original file size:", file.size, "bytes");
+    console.log("File type:", file.type);
+    
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+    
+    setUploadingImage(true);
+    
+    try {
+      const compressedBlob = await compressImage(file);
+      console.log("Compressed file size:", compressedBlob.size, "bytes");
+      
+      const formData = new FormData();
+      formData.append('file', compressedBlob, 'photo.jpg');
+      formData.append('upload_preset', 'spam_musubi_preset');
+      
+      const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      console.log("Cloudinary response:", data);
+      
+      if (data.secure_url) {
+        console.log("✅ Upload success! URL:", data.secure_url);
+        await sendImageMessage(data.secure_url);
+      } else {
+        console.error("Upload failed:", data.error);
+        alert("Upload failed: " + (data.error?.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const sendImageMessage = async (imageUrl) => {
     console.log("Sending image message with URL:", imageUrl);
