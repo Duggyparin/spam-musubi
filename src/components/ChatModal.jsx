@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
 import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { Camera, Send } from 'lucide-react';
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
-const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2"; // Updated to your actual UID
+const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 const DEFAULT_ADMIN_AVATAR = "https://i.pravatar.cc/150?img=7";
 
 const Avatar = ({ name, imageUrl }) => {
@@ -36,7 +37,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const conversationId = getConversationId(currentUser.uid, otherUserId);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-
   const formatLastSeen = (lastSeenISO) => {
     if (!lastSeenISO) return "Recently";
     const lastSeen = new Date(lastSeenISO);
@@ -51,7 +51,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   };
 
-  // Fetch admin data by email (no hardcoded UID)
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
@@ -70,7 +69,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchAdminData();
   }, []);
 
-  // ✅ AUTO-CREATE CONVERSATION IF IT DOESN'T EXIST (THIS IS KEY)
   useEffect(() => {
     if (!conversationId) return;
     const initConversation = async () => {
@@ -92,7 +90,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     initConversation();
   }, [conversationId, currentUser.uid, otherUserId]);
 
-  // Real-time online status for other user
   useEffect(() => {
     if (!otherUserId) return;
     const userStatusRef = doc(db, "users", otherUserId);
@@ -113,7 +110,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Real‑time messages from single conversation
   useEffect(() => {
     if (!conversationId) return;
     const messagesRef = collection(db, "conversations", conversationId, "messages");
@@ -143,7 +139,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return unsubscribe;
   }, [conversationId]);
 
-  // Mark messages as read
   useEffect(() => {
     if (!conversationId) return;
     const markMessagesAsRead = async () => {
@@ -163,7 +158,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     markMessagesAsRead();
   }, [conversationId, isAdmin]);
 
-  // Fetch customer details (for admin)
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
     const fetchUserDetails = async () => {
@@ -209,6 +203,61 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
+  const handleCameraUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+    
+    setUploadingImage(true);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'YOUR_UPLOAD_PRESET');
+    
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload`,
+        { method: 'POST', body: formData }
+      );
+      
+      const data = await response.json();
+      
+      if (data.secure_url) {
+        sendImageMessage(data.secure_url);
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const sendImageMessage = async (imageUrl) => {
+    try {
+      const messageData = {
+        text: "📷 Sent a photo",
+        imageUrl: imageUrl,
+        sender: isAdmin ? "admin" : "customer",
+        senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
+        fromUid: currentUser.uid,
+        toUid: otherUserId,
+        timestamp: serverTimestamp(),
+        read: false
+      };
+      await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
+    } catch (error) {
+      console.error("Send image error:", error);
+      alert("Failed to send image.");
+    }
+  };
+
   const otherName = isAdmin ? userName : (adminData?.fullName || "Owner");
   let avatarToShow = isAdmin ? otherUserAvatar : (adminData?.avatarUrl || DEFAULT_ADMIN_AVATAR);
 
@@ -224,60 +273,9 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-
-  const handleCameraUpload = () => {
-  if (!window.cloudinary) {
-    alert("Cloudinary widget not loaded. Please refresh the page.");
-    return;
-  }
-
-  setUploadingImage(true);
-  window.cloudinary.openUploadWidget(
-    {
-      cloudName: "YOUR_CLOUD_NAME", // Replace with your actual cloud name from Cloudinary
-      uploadPreset: "YOUR_UPLOAD_PRESET", // Replace with your actual upload preset
-      sources: ["camera", "local"],
-      multiple: false,
-      maxFileSize: 5000000,
-    },
-    (error, result) => {
-      setUploadingImage(false);
-      if (error) {
-        console.error("Upload error:", error);
-        alert("Failed to upload image.");
-        return;
-      }
-      if (result && result.event === "success") {
-        const imageUrl = result.info.secure_url;
-        sendImageMessage(imageUrl);
-      }
-    }
-  );
-};
-
-const sendImageMessage = async (imageUrl) => {
-  try {
-    const messageData = {
-      text: "📷 Sent a photo",
-      imageUrl: imageUrl,
-      sender: isAdmin ? "admin" : "customer",
-      senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
-      fromUid: currentUser.uid,
-      toUid: otherUserId,
-      timestamp: serverTimestamp(),
-      read: false
-    };
-    await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
-  } catch (error) {
-    console.error("Send image error:", error);
-    alert("Failed to send image.");
-  }
-};
-
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md flex flex-col h-[600px]">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Avatar name={otherName} imageUrl={avatarToShow} />
@@ -294,7 +292,6 @@ const sendImageMessage = async (imageUrl) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
-        {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
@@ -326,7 +323,7 @@ const sendImageMessage = async (imageUrl) => {
           )}
         </div>
 
-        {/* Input Area with Camera Button - ONLY ONE */}
+        {/* Input Area with Direct Camera */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
@@ -336,16 +333,37 @@ const sendImageMessage = async (imageUrl) => {
             placeholder="Type a message..."
             className="flex-1 px-4 py-2 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white text-sm"
           />
-          <button
-            onClick={handleCameraUpload}
-            disabled={uploadingImage}
-            className="px-4 py-2 rounded-xl bg-green-500 text-white font-bold hover:bg-green-400 disabled:opacity-50"
+          
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleCameraUpload}
+            className="hidden"
+            id="camera-input"
+          />
+          <label
+            htmlFor="camera-input"
+            className={`px-4 py-2 rounded-xl bg-green-500 text-white font-bold hover:bg-green-400 cursor-pointer transition-all flex items-center justify-center ${uploadingImage ? 'opacity-50 pointer-events-none' : ''}`}
             title="Take a photo"
           >
-            📷
-          </button>
-          <button onClick={sendMessage} disabled={sending} className="px-4 py-2 rounded-xl bg-amber-400 text-black font-bold hover:bg-amber-300 disabled:opacity-50">
-            Send
+            {uploadingImage ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <Camera className="w-5 h-5" />
+            )}
+          </label>
+          
+          <button 
+            onClick={sendMessage} 
+            disabled={sending} 
+            className="px-4 py-2 rounded-xl bg-amber-400 text-black font-bold hover:bg-amber-300 disabled:opacity-50 flex items-center justify-center"
+          >
+            {sending ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>
