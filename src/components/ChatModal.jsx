@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
 import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { Camera, Send } from 'lucide-react';
+import { Image, Send } from 'lucide-react';
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
@@ -203,7 +203,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  // Compress image - converts iPhone HEIC to JPEG
+  // Simple upload - just send the file to Cloudinary
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -242,14 +242,13 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     });
   };
 
-  const handleCameraUpload = async (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
     setUploadingImage(true);
     
     try {
-      // Compress image (converts HEIC to JPEG for iPhone)
       const compressedBlob = await compressImage(file);
       
       const formData = new FormData();
@@ -264,7 +263,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       const data = await response.json();
       
       if (data.secure_url) {
-        // Send the image URL as a message
         await addDoc(collection(db, "conversations", conversationId, "messages"), {
           imageUrl: data.secure_url,
           text: "",
@@ -320,7 +318,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
-        {/* Messages Display - Shows images directly */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
@@ -331,7 +328,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               return (
                 <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
-                    {/* Image - shows directly */}
                     {msg.imageUrl && (
                       <img 
                         src={msg.imageUrl} 
@@ -340,7 +336,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
                         onClick={() => window.open(msg.imageUrl, '_blank')}
                       />
                     )}
-                    {/* Text message */}
                     {msg.text && <p className="text-sm break-words">{msg.text}</p>}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <p className="text-[10px] opacity-60">{timeStr}</p>
@@ -354,7 +349,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           )}
         </div>
 
-        {/* Input Area */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
@@ -368,20 +362,19 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <input
             type="file"
             accept="image/*"
-            capture="environment"
-            onChange={handleCameraUpload}
+            onChange={handleImageUpload}
             className="hidden"
-            id="camera-input"
+            id="image-input"
           />
           <label
-            htmlFor="camera-input"
+            htmlFor="image-input"
             className={`px-4 py-2 rounded-xl bg-green-500 text-white font-bold hover:bg-green-400 cursor-pointer transition-all flex items-center justify-center ${uploadingImage ? 'opacity-50 pointer-events-none' : ''}`}
-            title="Take a photo"
+            title="Upload image"
           >
             {uploadingImage ? (
               <span className="animate-spin">⏳</span>
             ) : (
-              <Camera className="w-5 h-5" />
+              <Image className="w-5 h-5" />
             )}
           </label>
           
