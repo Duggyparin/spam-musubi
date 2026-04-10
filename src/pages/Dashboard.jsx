@@ -1529,10 +1529,10 @@ await addDoc(collection(db, "notifications"), {
           💬
         </button>
         {unreadCustomerCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-            {unreadCustomerCount > 9 ? "9+" : unreadCustomerCount}
-          </span>
-        )}
+  <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+    {unreadCustomerCount > 9 ? "9+" : unreadCustomerCount}
+  </span>
+)}
       </div>
       <div>
         <p className="font-black text-amber-400 leading-none">Spam Musubi</p>
