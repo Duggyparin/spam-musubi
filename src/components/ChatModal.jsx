@@ -36,6 +36,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const otherUserId = userId;
   const conversationId = getConversationId(currentUser.uid, otherUserId);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const formatLastSeen = (lastSeenISO) => {
     if (!lastSeenISO) return "Recently";
@@ -203,98 +204,31 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  // Compress image function
-  const compressImage = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const MAX_SIZE = 1200;
-          
-          if (width > height) {
-            if (width > MAX_SIZE) {
-              height = Math.round((height * MAX_SIZE) / width);
-              width = MAX_SIZE;
-            }
-          } else {
-            if (height > MAX_SIZE) {
-              width = Math.round((width * MAX_SIZE) / height);
-              height = MAX_SIZE;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob((blob) => {
-            resolve(blob);
-          }, 'image/jpeg', 0.8);
-        };
-      };
-    });
-  };
-
-  const handleCameraUpload = async (e) => {
+  // Camera: take photo, store locally, send as clickable button
+  const handleCameraUpload = (e) => {
     const file = e.target.files[0];
-    if (!file) {
-      console.log("No file selected");
-      return;
-    }
-    
-    console.log("Original file size:", file.size, "bytes");
-    console.log("File type:", file.type);
+    if (!file) return;
     
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
       return;
     }
     
-    setUploadingImage(true);
+    // Create a local URL for preview (stays on device)
+    const localImageUrl = URL.createObjectURL(file);
     
-    try {
-      const compressedBlob = await compressImage(file);
-      console.log("Compressed file size:", compressedBlob.size, "bytes");
-      
-      const formData = new FormData();
-      formData.append('file', compressedBlob, 'photo.jpg');
-      formData.append('upload_preset', 'spam_musubi_preset');
-      
-      const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
-        method: 'POST',
-        body: formData
-      });
-      
-      const data = await response.json();
-      console.log("Cloudinary response:", data);
-      
-      if (data.secure_url) {
-        console.log("✅ Upload success! URL:", data.secure_url);
-        await sendImageMessage(data.secure_url);
-      } else {
-        console.error("Upload failed:", data.error);
-        alert("Upload failed: " + (data.error?.message || "Unknown error"));
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload image. Please try again.');
-    } finally {
-      setUploadingImage(false);
-    }
+    // Send a message with a clickable button
+    sendImageMessage(localImageUrl);
+    
+    // Clean up the URL after sending (optional)
+    setTimeout(() => URL.revokeObjectURL(localImageUrl), 1000);
   };
 
   const sendImageMessage = async (imageUrl) => {
     console.log("Sending image message with URL:", imageUrl);
     try {
       const messageData = {
-        text: "📷 Sent a photo",
+        text: "📷 Click to view photo",
         imageUrl: imageUrl,
         sender: isAdmin ? "admin" : "customer",
         senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
@@ -355,15 +289,24 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               return (
                 <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
-                    {msg.imageUrl && (
-                      <img 
-                        src={msg.imageUrl} 
-                        alt="Shared" 
-                        className="max-w-full rounded-lg mb-2 cursor-pointer"
+                    {msg.imageUrl && msg.text === "📷 Click to view photo" ? (
+                      <button
                         onClick={() => window.open(msg.imageUrl, '_blank')}
-                      />
+                        className="w-full bg-amber-400/20 border border-amber-400/50 text-amber-400 px-3 py-2 rounded-lg text-sm hover:bg-amber-400/30 transition-all flex items-center justify-center gap-2"
+                      >
+                        📷 Click to view photo
+                      </button>
+                    ) : (
+                      msg.imageUrl && (
+                        <img 
+                          src={msg.imageUrl} 
+                          alt="Shared" 
+                          className="max-w-full rounded-lg mb-2 cursor-pointer"
+                          onClick={() => window.open(msg.imageUrl, '_blank')}
+                        />
+                      )
                     )}
-                    {msg.text && <p className="text-sm break-words">{msg.text}</p>}
+                    {msg.text && msg.text !== "📷 Click to view photo" && <p className="text-sm break-words">{msg.text}</p>}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <p className="text-[10px] opacity-60">{timeStr}</p>
                       {isMyMessage && msg.read === true && <span className="text-[10px] text-green-400">✓✓ Seen</span>}
