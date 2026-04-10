@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
 import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { Image, Send } from 'lucide-react';
+import { Camera, Send } from 'lucide-react';
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
@@ -36,6 +36,11 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const otherUserId = userId;
   const conversationId = getConversationId(currentUser.uid, otherUserId);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Auto‑scroll to bottom when messages change or when conversation is opened
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, conversationId]);
 
   const formatLastSeen = (lastSeenISO) => {
     if (!lastSeenISO) return "Recently";
@@ -105,10 +110,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     });
     return unsubscribe;
   }, [otherUserId]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -203,7 +204,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  // Simple upload - just send the file to Cloudinary
+  // Compress image (converts HEIC to JPEG and reduces size)
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -242,18 +243,16 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     });
   };
 
-  const handleImageUpload = async (e) => {
+  const handleCameraUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
     setUploadingImage(true);
-    
     try {
       const compressedBlob = await compressImage(file);
-      
       const formData = new FormData();
       formData.append('file', compressedBlob, 'photo.jpg');
-      formData.append('upload_preset', 'chat_uploads');
+      formData.append('upload_preset', 'chat_uploads'); // Make sure this preset exists and is Unsigned
       
       const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
         method: 'POST',
@@ -274,11 +273,11 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           read: false
         });
       } else {
-        alert("Upload failed");
+        alert("Upload failed: " + (data.error?.message || "Unknown error"));
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("Failed to upload image");
+      alert("Failed to upload image. Please try again.");
     } finally {
       setUploadingImage(false);
     }
@@ -318,6 +317,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
+        {/* Messages area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
@@ -347,8 +347,10 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               );
             })
           )}
+          <div ref={messagesEndRef} />
         </div>
 
+        {/* Input area */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
@@ -362,7 +364,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <input
             type="file"
             accept="image/*"
-            onChange={handleImageUpload}
+            onChange={handleCameraUpload}
             className="hidden"
             id="image-input"
           />
@@ -374,7 +376,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
             {uploadingImage ? (
               <span className="animate-spin">⏳</span>
             ) : (
-              <Image className="w-5 h-5" />
+              <Camera className="w-5 h-5" />
             )}
           </label>
           
