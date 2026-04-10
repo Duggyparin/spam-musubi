@@ -216,11 +216,11 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', 'Camera_Upload');
+    formData.append('upload_preset', 'spam_musubi_preset');
     
     try {
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/Camera_Upload/image/upload`,
+        `https://api.cloudinary.com/v1_1/dvbbusgra/image/upload`,
         { method: 'POST', body: formData }
       );
       
