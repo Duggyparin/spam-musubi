@@ -203,7 +203,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  // Compress image before upload (handles iPhone HEIC to JPEG conversion)
+  // Compress image - converts iPhone HEIC to JPEG
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -242,19 +242,15 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     });
   };
 
-  // Native camera upload - works on iPhone
-  const handleNativeCameraUpload = async (e) => {
+  const handleCameraUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    console.log("📸 Camera capture - file:", file.name, file.type, file.size);
     
     setUploadingImage(true);
     
     try {
-      // Compress and convert to JPEG (handles iPhone HEIC)
+      // Compress image (converts HEIC to JPEG for iPhone)
       const compressedBlob = await compressImage(file);
-      console.log("📸 After compress - size:", compressedBlob.size);
       
       const formData = new FormData();
       formData.append('file', compressedBlob, 'photo.jpg');
@@ -266,39 +262,27 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       });
       
       const data = await response.json();
-      console.log("📸 Cloudinary response:", data);
       
       if (data.secure_url) {
-        await sendImageMessage(data.secure_url);
+        // Send the image URL as a message
+        await addDoc(collection(db, "conversations", conversationId, "messages"), {
+          imageUrl: data.secure_url,
+          text: "",
+          sender: isAdmin ? "admin" : "customer",
+          senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
+          fromUid: currentUser.uid,
+          toUid: otherUserId,
+          timestamp: serverTimestamp(),
+          read: false
+        });
       } else {
-        alert("Upload failed: " + (data.error?.message || "Unknown error"));
+        alert("Upload failed");
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("Failed to upload image. Please try again.");
+      alert("Failed to upload image");
     } finally {
       setUploadingImage(false);
-    }
-  };
-
-  const sendImageMessage = async (imageUrl) => {
-    console.log("📸 Sending image with URL:", imageUrl);
-    try {
-      const messageData = {
-        text: "",
-        imageUrl: imageUrl,
-        sender: isAdmin ? "admin" : "customer",
-        senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
-        fromUid: currentUser.uid,
-        toUid: otherUserId,
-        timestamp: serverTimestamp(),
-        read: false
-      };
-      await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
-      console.log("📸 Image message sent successfully");
-    } catch (error) {
-      console.error("Send image error:", error);
-      alert("Failed to send image.");
     }
   };
 
@@ -336,6 +320,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
+        {/* Messages Display - Shows images directly */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
@@ -346,6 +331,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
               return (
                 <div key={msg.id} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMyMessage ? "bg-amber-400 text-black rounded-br-sm" : "bg-white/10 text-white rounded-bl-sm"}`}>
+                    {/* Image - shows directly */}
                     {msg.imageUrl && (
                       <img 
                         src={msg.imageUrl} 
@@ -354,6 +340,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
                         onClick={() => window.open(msg.imageUrl, '_blank')}
                       />
                     )}
+                    {/* Text message */}
                     {msg.text && <p className="text-sm break-words">{msg.text}</p>}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <p className="text-[10px] opacity-60">{timeStr}</p>
@@ -367,7 +354,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           )}
         </div>
 
-        {/* Input Area with Native Camera (works on iPhone) */}
+        {/* Input Area */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
@@ -382,7 +369,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
             type="file"
             accept="image/*"
             capture="environment"
-            onChange={handleNativeCameraUpload}
+            onChange={handleCameraUpload}
             className="hidden"
             id="camera-input"
           />
