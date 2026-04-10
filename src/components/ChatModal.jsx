@@ -220,7 +220,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     
     try {
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload`,
+        `https://api.cloudinary.com/v1_1/Camera_Upload/image/upload`,
         { method: 'POST', body: formData }
       );
       
