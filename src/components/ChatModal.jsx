@@ -203,7 +203,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  // Compress image before upload
+  // Compress image before upload (handles iPhone HEIC to JPEG conversion)
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -242,23 +242,20 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     });
   };
 
-  const handleCameraUpload = async (e) => {
+  // Native camera upload - works on iPhone
+  const handleNativeCameraUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
-      return;
-    }
+    console.log("📸 Camera capture - file:", file.name, file.type, file.size);
     
     setUploadingImage(true);
     
     try {
-      // Compress the image
+      // Compress and convert to JPEG (handles iPhone HEIC)
       const compressedBlob = await compressImage(file);
-      console.log("Compressed size:", compressedBlob.size);
+      console.log("📸 After compress - size:", compressedBlob.size);
       
-      // Upload to Cloudinary
       const formData = new FormData();
       formData.append('file', compressedBlob, 'photo.jpg');
       formData.append('upload_preset', 'chat_uploads');
@@ -269,7 +266,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       });
       
       const data = await response.json();
-      console.log("Cloudinary response:", data);
+      console.log("📸 Cloudinary response:", data);
       
       if (data.secure_url) {
         await sendImageMessage(data.secure_url);
@@ -277,15 +274,15 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         alert("Upload failed: " + (data.error?.message || "Unknown error"));
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('Failed to upload image. Please try again.');
+      console.error("Upload error:", error);
+      alert("Failed to upload image. Please try again.");
     } finally {
       setUploadingImage(false);
     }
   };
 
   const sendImageMessage = async (imageUrl) => {
-    console.log("Sending image message with URL:", imageUrl);
+    console.log("📸 Sending image with URL:", imageUrl);
     try {
       const messageData = {
         text: "",
@@ -298,7 +295,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         read: false
       };
       await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
-      console.log("Image message sent successfully");
+      console.log("📸 Image message sent successfully");
     } catch (error) {
       console.error("Send image error:", error);
       alert("Failed to send image.");
@@ -370,7 +367,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           )}
         </div>
 
-        {/* Input Area with Camera */}
+        {/* Input Area with Native Camera (works on iPhone) */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
@@ -385,7 +382,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
             type="file"
             accept="image/*"
             capture="environment"
-            onChange={handleCameraUpload}
+            onChange={handleNativeCameraUpload}
             className="hidden"
             id="camera-input"
           />
