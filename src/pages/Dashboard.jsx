@@ -854,7 +854,14 @@ export default function Dashboard() {
   const [unreadCustomerCount, setUnreadCustomerCount] = useState(0);
 
 
-    // Online/offline presence for customer
+  
+  const scrollToForm = () => {
+    if (stepContainerRef.current) {
+      stepContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+   // Online/offline presence for customer
   useEffect(() => {
     if (!user) return;
     const userStatusRef = doc(db, "users", user.uid);
@@ -883,12 +890,6 @@ export default function Dashboard() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [user]);
-
-  const scrollToForm = () => {
-    if (stepContainerRef.current) {
-      stepContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
 
   const refreshUserProfile = async () => {
     if (!user) return;
