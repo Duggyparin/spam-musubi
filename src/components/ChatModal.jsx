@@ -212,38 +212,28 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   
   console.log("File selected:", file.name, file.type, file.size);
   
-  if (!file.type.startsWith('image/')) {
-    alert('Please select an image file');
-    return;
-  }
-  
   setUploadingImage(true);
   
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('upload_preset', 'chat_uploads'); // ← CHANGE THIS LINE
-  
-  console.log("Uploading to Cloudinary with preset: chat_uploads");
+  formData.append('upload_preset', 'chat_uploads'); // Make sure this matches
   
   try {
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/dvbbusgra/image/upload`,
-      { method: 'POST', body: formData }
-    );
+    const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
+      method: 'POST',
+      body: formData
+    });
     
-    console.log("Cloudinary response status:", response.status);
     const data = await response.json();
-    console.log("📸 Cloudinary response data:", data);
+    console.log("Cloudinary response:", data);
     
     if (data.secure_url) {
-      console.log("✅ Upload success! URL:", data.secure_url);
       await sendImageMessage(data.secure_url);
     } else {
-      console.error("❌ Upload failed:", data.error);
       alert("Upload failed: " + (data.error?.message || "Unknown error"));
     }
   } catch (error) {
-    console.error('❌ Upload error:', error);
+    console.error('Upload error:', error);
     alert('Failed to upload image. Please try again.');
   } finally {
     setUploadingImage(false);
