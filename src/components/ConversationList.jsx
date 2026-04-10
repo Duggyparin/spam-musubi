@@ -50,27 +50,25 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
         if (!otherUserId) continue;
 
-        let userName = "User";
+        // Fetch other user's details – default to "Customer"/"Owner" if not found
+        let userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
         let userEmail = "";
         let avatarUrl = null;
         let online = false;
         try {
           const userDoc = await getDoc(doc(db, "users", otherUserId));
           if (userDoc.exists()) {
-            userName = userDoc.data().fullName || userDoc.data().userName || "User";
+            userName = userDoc.data().fullName || userDoc.data().userName || userName;
             userEmail = userDoc.data().userEmail || "";
             avatarUrl = userDoc.data().avatarUrl || null;
             online = userDoc.data().online === true;
-          } else {
-            console.warn(`User document missing for ${otherUserId}`);
-            userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
           }
         } catch (e) {
           console.error("Error fetching user details:", e);
         }
 
+        // Get last message for display
         let lastMessage = data.lastMessage || "";
-        let unread = false;
         try {
           const lastMsgQuery = query(
             collection(db, "conversations", docSnap.id, "messages"),
@@ -81,14 +79,25 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           if (!lastMsgSnap.empty) {
             const lastMsg = lastMsgSnap.docs[0].data();
             lastMessage = lastMsg.text || lastMessage;
-            const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
-            const isRead = lastMsg.read === true;
-            unread = isFromOther && !isRead;
-          } else {
-            unread = false;
           }
         } catch (err) {
           console.error("Error fetching last message:", err);
+        }
+
+        // Check for ANY unread message from the other user
+        let unread = false;
+        try {
+          const otherSender = isAdmin ? "customer" : "admin";
+          const unreadQuery = query(
+            collection(db, "conversations", docSnap.id, "messages"),
+            where("sender", "==", otherSender),
+            where("read", "==", false),
+            limit(1)
+          );
+          const unreadSnap = await getDocs(unreadQuery);
+          unread = !unreadSnap.empty;
+        } catch (err) {
+          console.error("Error checking unread:", err);
         }
 
         convList.push({
