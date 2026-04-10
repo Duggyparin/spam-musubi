@@ -203,9 +203,14 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     }
   };
 
-  const handleCameraUpload = async (e) => {
+ const handleCameraUpload = async (e) => {
   const file = e.target.files[0];
-  if (!file) return;
+  if (!file) {
+    console.log("No file selected");
+    return;
+  }
+  
+  console.log("File selected:", file.name, file.type, file.size);
   
   if (!file.type.startsWith('image/')) {
     alert('Please select an image file');
@@ -216,7 +221,9 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('upload_preset', 'spam_musubi_preset');
+  formData.append('upload_preset', 'chat_uploads'); // ← CHANGE THIS LINE
+  
+  console.log("Uploading to Cloudinary with preset: chat_uploads");
   
   try {
     const response = await fetch(
@@ -224,8 +231,9 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       { method: 'POST', body: formData }
     );
     
+    console.log("Cloudinary response status:", response.status);
     const data = await response.json();
-    console.log("📸 Cloudinary response:", data); // ← ADD THIS
+    console.log("📸 Cloudinary response data:", data);
     
     if (data.secure_url) {
       console.log("✅ Upload success! URL:", data.secure_url);
@@ -243,6 +251,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
 };
 
   const sendImageMessage = async (imageUrl) => {
+    console.log("Sending image message with URL:", imageUrl);
     try {
       const messageData = {
         text: "📷 Sent a photo",
@@ -255,6 +264,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         read: false
       };
       await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
+      console.log("Image message sent successfully");
     } catch (error) {
       console.error("Send image error:", error);
       alert("Failed to send image.");
