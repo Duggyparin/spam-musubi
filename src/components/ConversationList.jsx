@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { db, auth } from "../firebase/firebase";
 import { collection, query, orderBy, getDocs, doc, getDoc, limit, where, onSnapshot } from "firebase/firestore";
 import ChatModal from "./ChatModal";
@@ -6,14 +6,24 @@ import ChatModal from "./ChatModal";
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
-const Avatar = ({ name, imageUrl }) => {
-  if (imageUrl) return <img src={imageUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />;
+const Avatar = ({ name, imageUrl, online }) => {
+  if (imageUrl) {
+    return (
+      <div className="relative">
+        <img src={imageUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />
+        {online && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black"></div>}
+      </div>
+    );
+  }
   const initials = name?.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "??";
   const colors = ["bg-amber-400", "bg-green-400", "bg-blue-400", "bg-purple-400", "bg-pink-400"];
   const color = colors[name?.charCodeAt(0) % colors.length] || "bg-amber-400";
   return (
-    <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center font-black text-black text-sm flex-shrink-0`}>
-      {initials}
+    <div className="relative">
+      <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center font-black text-black text-sm flex-shrink-0`}>
+        {initials}
+      </div>
+      {online && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black"></div>}
     </div>
   );
 };
@@ -23,12 +33,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
   const [selectedChat, setSelectedChat] = useState(null);
   const currentUser = auth.currentUser;
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
-  const isMounted = useRef(true);
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => { isMounted.current = false; };
-  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -40,37 +44,33 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      console.log("📡 Snapshot size:", snapshot.size);
       const convList = [];
-
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const otherUserId = data.participants?.find(uid => uid !== currentUser.uid);
-        if (!otherUserId) {
-          console.warn("No other user in participants", data.participants);
-          continue;
-        }
+        const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
+        if (!otherUserId) continue;
 
-        // Default values
-        let userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
+        let userName = "User";
         let userEmail = "";
         let avatarUrl = null;
-
+        let online = false;
         try {
           const userDoc = await getDoc(doc(db, "users", otherUserId));
           if (userDoc.exists()) {
-            userName = userDoc.data().fullName || userDoc.data().userName || userName;
+            userName = userDoc.data().fullName || userDoc.data().userName || "User";
             userEmail = userDoc.data().userEmail || "";
             avatarUrl = userDoc.data().avatarUrl || null;
+            online = userDoc.data().online === true;
           } else {
-            console.log(`⚠️ User document missing for ${otherUserId}, using fallback name: ${userName}`);
+            console.warn(`User document missing for ${otherUserId}`);
+            userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
           }
-        } catch (err) {
-          console.error("Error fetching user details:", err);
+        } catch (e) {
+          console.error("Error fetching user details:", e);
         }
 
-        // Get last message preview
         let lastMessage = data.lastMessage || "";
+        let unread = false;
         try {
           const lastMsgQuery = query(
             collection(db, "conversations", docSnap.id, "messages"),
@@ -81,6 +81,11 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           if (!lastMsgSnap.empty) {
             const lastMsg = lastMsgSnap.docs[0].data();
             lastMessage = lastMsg.text || lastMessage;
+            const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
+            const isRead = lastMsg.read === true;
+            unread = isFromOther && !isRead;
+          } else {
+            unread = false;
           }
         } catch (err) {
           console.error("Error fetching last message:", err);
@@ -91,27 +96,18 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           userName,
           userEmail,
           userAvatar: avatarUrl,
+          online,
           lastMessage,
           lastTimestamp: data.lastUpdated,
+          unread,
         });
       }
 
-      console.log("✅ convList ready, length:", convList.length);
-      if (isMounted.current) {
-        // Force a new array reference to ensure React re-renders
-        setConversations([...convList]);
-        console.log("State updated, conversations length:", convList.length);
-      }
-    }, (error) => {
-      console.error("❌ Conversation listener error:", error);
-    });
+      setConversations(convList);
+    }, (error) => console.error("Conversation listener error:", error));
 
     return () => unsubscribe();
-  }, [currentUser]);
-
-  useEffect(() => {
-    console.log("Conversations state changed, length:", conversations.length);
-  }, [conversations]);
+  }, [currentUser, isAdmin]);
 
   useEffect(() => {
     if (preselectedUserId && conversations.length > 0) {
@@ -120,13 +116,20 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
     }
   }, [preselectedUserId, conversations]);
 
-  console.log("Rendering ConversationList, conversations length:", conversations.length);
-
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-4xl p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-black text-amber-400">💬 Messages</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-black text-amber-400">💬 Messages</h2>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="text-xs text-amber-400 hover:text-amber-300 transition-all"
+              title="Refresh conversations"
+            >
+              🔄
+            </button>
+          </div>
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
@@ -147,15 +150,18 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
                     className={`w-full p-3 text-left hover:bg-white/5 transition-all ${selectedChat?.userId === conv.userId ? 'bg-white/10' : ''}`}
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar name={conv.userName} imageUrl={conv.userAvatar} />
+                      <Avatar name={conv.userName} imageUrl={conv.userAvatar} online={conv.online} />
                       <div className="flex-1">
-                        <p className="text-sm font-normal text-white/80">
+                        <p className={`text-sm ${conv.unread ? 'font-bold text-white' : 'font-normal text-white/80'}`}>
                           {isAdmin ? conv.userName : "Owner"}
                         </p>
-                        <p className="text-xs truncate text-white/40">
+                        <p className={`text-xs truncate ${conv.unread ? 'text-amber-400 font-medium' : 'text-white/40'}`}>
                           {conv.lastMessage || "No messages yet"}
                         </p>
                       </div>
+                      {conv.unread && (
+                        <div className="w-2.5 h-2.5 bg-amber-400 rounded-full shadow-lg shadow-amber-400/50"></div>
+                      )}
                     </div>
                   </button>
                 ))}
