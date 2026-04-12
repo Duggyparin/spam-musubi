@@ -35,10 +35,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
   useEffect(() => {
-    if (!currentUser) {
-      console.log("No current user");
-      return;
-    }
+    if (!currentUser) return;
 
     const q = query(
       collection(db, "conversations_meta"),
@@ -47,20 +44,14 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      console.log("Conversations meta snapshot size:", snapshot.size);
+      console.log("Snapshot size:", snapshot.size);
       const convList = [];
 
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const participants = data.participants || [];
-        const otherUserId = participants.find(uid => uid !== currentUser.uid);
-        
-        if (!otherUserId) {
-          console.warn("No other user found in participants", participants);
-          continue;
-        }
+        const otherUserId = data.participants?.find(uid => uid !== currentUser.uid);
+        if (!otherUserId) continue;
 
-        // Fetch other user's details (with fallback)
         let userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
         let userEmail = "";
         let avatarUrl = null;
@@ -72,14 +63,11 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
             userEmail = userDoc.data().userEmail || "";
             avatarUrl = userDoc.data().avatarUrl || null;
             online = userDoc.data().online === true;
-          } else {
-            console.log(`User document missing for ${otherUserId}, using fallback name: ${userName}`);
           }
         } catch (err) {
           console.error("Error fetching user details:", err);
         }
 
-        // Get last message for preview
         let lastMessage = data.lastMessage || "";
         try {
           const lastMsgQuery = query(
@@ -96,7 +84,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           console.error("Error fetching last message:", err);
         }
 
-        // Check for unread messages from the other user
         let unread = false;
         try {
           const otherSender = isAdmin ? "customer" : "admin";
@@ -124,11 +111,10 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         });
       }
 
-      console.log("Final conversation list:", convList);
-      setConversations(convList);
-    }, (error) => {
-      console.error("Conversation listener error:", error);
-    });
+      console.log("Final convList length:", convList.length);
+      // Force re-render by spreading into a new array
+      setConversations([...convList]);
+    }, (error) => console.error("Conversation listener error:", error));
 
     return () => unsubscribe();
   }, [currentUser, isAdmin]);
@@ -155,17 +141,13 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Conversation List */}
             <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden">
               <div className="p-3 border-b border-white/10 text-white/50 text-xs uppercase">Conversations</div>
               <div className="divide-y divide-white/10 max-h-[500px] overflow-y-auto">
                 {conversations.map((conv) => (
                   <button
                     key={conv.userId}
-                    onClick={() => {
-                      console.log("Selected conversation:", conv);
-                      setSelectedChat(conv);
-                    }}
+                    onClick={() => setSelectedChat(conv)}
                     className={`w-full p-3 text-left hover:bg-white/5 transition-all ${selectedChat?.userId === conv.userId ? 'bg-white/10' : ''}`}
                   >
                     <div className="flex items-center gap-3">
@@ -187,7 +169,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
               </div>
             </div>
 
-            {/* Chat Modal */}
             <div className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl flex flex-col h-[500px]">
               {selectedChat ? (
                 <ChatModal
