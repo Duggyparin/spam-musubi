@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { auth, db } from "../firebase/firebase";
-import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, onSnapshot, where, getDocs, updateDoc, doc, getDoc, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { Camera, Send } from 'lucide-react';
 
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
@@ -127,7 +127,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           return {
             id: doc.id,
             text: data.text || "",
-            imageUrl: data.imageUrl || null,   // ← ADDED THIS LINE
+            imageUrl: data.imageUrl || null,
             sender: data.sender,
             senderName: data.senderName,
             read: data.read === true,
@@ -141,24 +141,24 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return unsubscribe;
   }, [conversationId]);
 
+  // ========== YOUR INSERTED SNIPPET (markAsRead) ==========
   useEffect(() => {
-    if (!conversationId) return;
-    const markMessagesAsRead = async () => {
-      try {
-        const messagesRef = collection(db, "conversations", conversationId, "messages");
-        const otherSender = isAdmin ? "customer" : "admin";
-        const q = query(messagesRef, where("read", "==", false), where("sender", "==", otherSender));
-        const querySnapshot = await getDocs(q);
-        const updatePromises = querySnapshot.docs.map(async (document) => {
-          await updateDoc(document.ref, { read: true });
-        });
-        await Promise.all(updatePromises);
-      } catch (error) {
-        console.error("Error marking messages as read:", error);
-      }
+    const markAsRead = async () => {
+      const q = query(
+        collection(db, "conversations", conversationId, "messages"),
+        where("sender", "==", "admin"),  // messages from admin
+        where("read", "==", false)
+      );
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      snapshot.forEach(docSnap => {
+        batch.update(docSnap.ref, { read: true });
+      });
+      await batch.commit();
     };
-    markMessagesAsRead();
-  }, [conversationId, isAdmin]);
+    markAsRead();
+  }, [conversationId]);
+  // ========== END OF INSERTED SNIPPET ==========
 
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
