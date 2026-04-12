@@ -6,6 +6,20 @@ import ChatModal from "./ChatModal";
 const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
+const Avatar = ({ name, imageUrl }) => {
+  if (imageUrl) {
+    return <img src={imageUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />;
+  }
+  const initials = name?.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "??";
+  const colors = ["bg-amber-400", "bg-green-400", "bg-blue-400", "bg-purple-400", "bg-pink-400"];
+  const color = colors[name?.charCodeAt(0) % colors.length] || "bg-amber-400";
+  return (
+    <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center font-black text-black text-sm flex-shrink-0`}>
+      {initials}
+    </div>
+  );
+};
+
 const ConversationList = ({ onClose, preselectedUserId = null }) => {
   const [conversations, setConversations] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -28,26 +42,59 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         const otherUserId = data.participants?.find(uid => uid !== currentUser.uid);
         if (!otherUserId) continue;
 
+        // Get user name
         let userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
+        let userEmail = "";
+        let avatarUrl = null;
         try {
           const userDoc = await getDoc(doc(db, "users", otherUserId));
           if (userDoc.exists()) {
             userName = userDoc.data().fullName || userDoc.data().userName || userName;
+            userEmail = userDoc.data().userEmail || "";
+            avatarUrl = userDoc.data().avatarUrl || null;
           }
         } catch (err) {
-          console.error(err);
+          console.error("Error fetching user details:", err);
+        }
+
+        // Get last message preview
+        let lastMessage = data.lastMessage || "";
+        try {
+          const lastMsgQuery = query(
+            collection(db, "conversations", docSnap.id, "messages"),
+            orderBy("timestamp", "desc"),
+            limit(1)
+          );
+          const lastMsgSnap = await getDocs(lastMsgQuery);
+          if (!lastMsgSnap.empty) {
+            const lastMsg = lastMsgSnap.docs[0].data();
+            lastMessage = lastMsg.text || lastMessage;
+          }
+        } catch (err) {
+          console.error("Error fetching last message:", err);
         }
 
         convList.push({
           userId: otherUserId,
           userName,
+          userEmail,
+          userAvatar: avatarUrl,
+          lastMessage,
+          lastTimestamp: data.lastUpdated,
         });
       }
       setConversations(convList);
-    });
+    }, (error) => console.error("Conversation listener error:", error));
 
     return () => unsubscribe();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (preselectedUserId && conversations.length > 0) {
+      const target = conversations.find(c => c.userId === preselectedUserId);
+      if (target) setSelectedChat(target);
+    }
+  }, [preselectedUserId, conversations]);
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
@@ -58,9 +105,13 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         </div>
 
         {conversations.length === 0 ? (
-          <div className="text-center py-12"><div className="text-5xl mb-4">💬</div><p className="text-white/50">No conversations yet.</p></div>
+          <div className="text-center py-12">
+            <div className="text-5xl mb-4">💬</div>
+            <p className="text-white/50">No conversations yet.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Conversation List */}
             <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden">
               <div className="p-3 border-b border-white/10 text-white/50 text-xs uppercase">Conversations</div>
               <div className="divide-y divide-white/10 max-h-[500px] overflow-y-auto">
@@ -68,30 +119,37 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
                   <button
                     key={conv.userId}
                     onClick={() => setSelectedChat(conv)}
-                    className="w-full p-3 text-left hover:bg-white/5 transition-all"
+                    className={`w-full p-3 text-left hover:bg-white/5 transition-all ${selectedChat?.userId === conv.userId ? 'bg-white/10' : ''}`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center font-black text-black">
-                        {conv.userName?.[0]?.toUpperCase() || "?"}
-                      </div>
+                      <Avatar name={conv.userName} imageUrl={conv.userAvatar} />
                       <div className="flex-1">
-                        <p className="text-sm font-normal text-white/80">{isAdmin ? conv.userName : "Owner"}</p>
+                        <p className="text-sm font-normal text-white/80">
+                          {isAdmin ? conv.userName : "Owner"}
+                        </p>
+                        <p className="text-xs truncate text-white/40">
+                          {conv.lastMessage || "No messages yet"}
+                        </p>
                       </div>
                     </div>
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Chat Modal */}
             <div className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl flex flex-col h-[500px]">
               {selectedChat ? (
                 <ChatModal
                   userId={selectedChat.userId}
                   userName={selectedChat.userName}
-                  userEmail=""
+                  userEmail={selectedChat.userEmail}
                   onClose={() => setSelectedChat(null)}
                 />
               ) : (
-                <div className="flex-1 flex items-center justify-center text-white/40">Select a conversation</div>
+                <div className="flex-1 flex items-center justify-center text-white/40">
+                  Select a conversation to start messaging
+                </div>
               )}
             </div>
           </div>
