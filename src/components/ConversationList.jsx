@@ -35,7 +35,10 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.log("No current user");
+      return;
+    }
 
     const q = query(
       collection(db, "conversations_meta"),
@@ -44,13 +47,20 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
+      console.log("Conversations meta snapshot size:", snapshot.size);
       const convList = [];
+
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
-        if (!otherUserId) continue;
+        const participants = data.participants || [];
+        const otherUserId = participants.find(uid => uid !== currentUser.uid);
+        
+        if (!otherUserId) {
+          console.warn("No other user found in participants", participants);
+          continue;
+        }
 
-        // Fetch other user's details
+        // Fetch other user's details (with fallback)
         let userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
         let userEmail = "";
         let avatarUrl = null;
@@ -62,12 +72,14 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
             userEmail = userDoc.data().userEmail || "";
             avatarUrl = userDoc.data().avatarUrl || null;
             online = userDoc.data().online === true;
+          } else {
+            console.log(`User document missing for ${otherUserId}, using fallback name: ${userName}`);
           }
-        } catch (e) {
-          console.error("Error fetching user details:", e);
+        } catch (err) {
+          console.error("Error fetching user details:", err);
         }
 
-        // Get last message for display
+        // Get last message for preview
         let lastMessage = data.lastMessage || "";
         try {
           const lastMsgQuery = query(
@@ -84,7 +96,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           console.error("Error fetching last message:", err);
         }
 
-        // Check for unread messages
+        // Check for unread messages from the other user
         let unread = false;
         try {
           const otherSender = isAdmin ? "customer" : "admin";
@@ -112,8 +124,11 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         });
       }
 
+      console.log("Final conversation list:", convList);
       setConversations(convList);
-    }, (error) => console.error("Conversation listener error:", error));
+    }, (error) => {
+      console.error("Conversation listener error:", error);
+    });
 
     return () => unsubscribe();
   }, [currentUser, isAdmin]);
@@ -129,16 +144,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
     <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-4xl p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black text-amber-400">💬 Messages</h2>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="text-xs text-amber-400 hover:text-amber-300 transition-all"
-              title="Refresh conversations"
-            >
-              🔄
-            </button>
-          </div>
+          <h2 className="text-xl font-black text-amber-400">💬 Messages</h2>
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
@@ -157,7 +163,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
                   <button
                     key={conv.userId}
                     onClick={() => {
-                      console.log("Selected chat:", conv);
+                      console.log("Selected conversation:", conv);
                       setSelectedChat(conv);
                     }}
                     className={`w-full p-3 text-left hover:bg-white/5 transition-all ${selectedChat?.userId === conv.userId ? 'bg-white/10' : ''}`}
