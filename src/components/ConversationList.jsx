@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db, auth } from "../firebase/firebase";
 import { collection, query, orderBy, getDocs, doc, getDoc, limit, where, onSnapshot } from "firebase/firestore";
 import ChatModal from "./ChatModal";
@@ -7,9 +7,7 @@ const ADMIN_EMAIL = "monsanto.bryann@gmail.com";
 const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
 const Avatar = ({ name, imageUrl }) => {
-  if (imageUrl) {
-    return <img src={imageUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />;
-  }
+  if (imageUrl) return <img src={imageUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />;
   const initials = name?.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "??";
   const colors = ["bg-amber-400", "bg-green-400", "bg-blue-400", "bg-purple-400", "bg-pink-400"];
   const color = colors[name?.charCodeAt(0) % colors.length] || "bg-amber-400";
@@ -25,6 +23,12 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
   const [selectedChat, setSelectedChat] = useState(null);
   const currentUser = auth.currentUser;
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -36,22 +40,30 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
+      console.log("📡 Snapshot size:", snapshot.size);
       const convList = [];
+
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
         const otherUserId = data.participants?.find(uid => uid !== currentUser.uid);
-        if (!otherUserId) continue;
+        if (!otherUserId) {
+          console.warn("No other user in participants", data.participants);
+          continue;
+        }
 
-        // Get user name
+        // Default values
         let userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
         let userEmail = "";
         let avatarUrl = null;
+
         try {
           const userDoc = await getDoc(doc(db, "users", otherUserId));
           if (userDoc.exists()) {
             userName = userDoc.data().fullName || userDoc.data().userName || userName;
             userEmail = userDoc.data().userEmail || "";
             avatarUrl = userDoc.data().avatarUrl || null;
+          } else {
+            console.log(`⚠️ User document missing for ${otherUserId}, using fallback name: ${userName}`);
           }
         } catch (err) {
           console.error("Error fetching user details:", err);
@@ -83,11 +95,23 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           lastTimestamp: data.lastUpdated,
         });
       }
-      setConversations(convList);
-    }, (error) => console.error("Conversation listener error:", error));
+
+      console.log("✅ convList ready, length:", convList.length);
+      if (isMounted.current) {
+        // Force a new array reference to ensure React re-renders
+        setConversations([...convList]);
+        console.log("State updated, conversations length:", convList.length);
+      }
+    }, (error) => {
+      console.error("❌ Conversation listener error:", error);
+    });
 
     return () => unsubscribe();
   }, [currentUser]);
+
+  useEffect(() => {
+    console.log("Conversations state changed, length:", conversations.length);
+  }, [conversations]);
 
   useEffect(() => {
     if (preselectedUserId && conversations.length > 0) {
@@ -95,6 +119,8 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
       if (target) setSelectedChat(target);
     }
   }, [preselectedUserId, conversations]);
+
+  console.log("Rendering ConversationList, conversations length:", conversations.length);
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-16 px-4 overflow-y-auto">
@@ -111,7 +137,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Conversation List */}
             <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden">
               <div className="p-3 border-b border-white/10 text-white/50 text-xs uppercase">Conversations</div>
               <div className="divide-y divide-white/10 max-h-[500px] overflow-y-auto">
@@ -137,7 +162,6 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
               </div>
             </div>
 
-            {/* Chat Modal */}
             <div className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl flex flex-col h-[500px]">
               {selectedChat ? (
                 <ChatModal
