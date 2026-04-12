@@ -110,7 +110,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return unsubscribe;
   }, [otherUserId]);
 
-  // ✅ FIXED: include imageUrl in the mapped message object
+  // ✅ include imageUrl in the mapped message object
   useEffect(() => {
     if (!conversationId) return;
     const messagesRef = collection(db, "conversations", conversationId, "messages");
@@ -141,24 +141,27 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return unsubscribe;
   }, [conversationId]);
 
-  // ========== YOUR INSERTED SNIPPET (markAsRead) ==========
+  // ========== UNIVERSAL markAsRead (marks messages from the other participant) ==========
   useEffect(() => {
     const markAsRead = async () => {
+      const otherSender = isAdmin ? "customer" : "admin";
       const q = query(
         collection(db, "conversations", conversationId, "messages"),
-        where("sender", "==", "admin"),  // messages from admin
+        where("sender", "==", otherSender),
         where("read", "==", false)
       );
       const snapshot = await getDocs(q);
+      if (snapshot.empty) return;
       const batch = writeBatch(db);
-      snapshot.forEach(docSnap => {
+      snapshot.forEach((docSnap) => {
         batch.update(docSnap.ref, { read: true });
       });
       await batch.commit();
+      console.log("Marked unread messages from", otherSender, "as read");
     };
     markAsRead();
-  }, [conversationId]);
-  // ========== END OF INSERTED SNIPPET ==========
+  }, [conversationId, isAdmin]);
+  // ========== END OF UNIVERSAL markAsRead ==========
 
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
