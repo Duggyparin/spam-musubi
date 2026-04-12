@@ -35,6 +35,11 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
   const otherUserId = userId;
   const conversationId = getConversationId(currentUser.uid, otherUserId);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, conversationId]);
 
   const formatLastSeen = (lastSeenISO) => {
     if (!lastSeenISO) return "Recently";
@@ -50,7 +55,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   };
 
-  // Fetch admin data
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
@@ -69,7 +73,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     fetchAdminData();
   }, []);
 
-  // Auto-create conversation metadata if missing
   useEffect(() => {
     if (!conversationId) return;
     const initConversation = async () => {
@@ -91,7 +94,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     initConversation();
   }, [conversationId, currentUser.uid, otherUserId]);
 
-  // Real-time online status of other user
   useEffect(() => {
     if (!otherUserId) return;
     const userStatusRef = doc(db, "users", otherUserId);
@@ -108,40 +110,37 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     return unsubscribe;
   }, [otherUserId]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Real‑time messages subscription
+  // ✅ FIXED: include imageUrl in the mapped message object
   useEffect(() => {
     if (!conversationId) return;
     const messagesRef = collection(db, "conversations", conversationId, "messages");
     const q = query(messagesRef, orderBy("timestamp", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => {
-        const data = doc.data();
-        let timestampDate = null;
-        if (data.timestamp) {
-          if (data.timestamp.toDate) timestampDate = data.timestamp.toDate();
-          else if (typeof data.timestamp === 'string') timestampDate = new Date(data.timestamp);
-        }
-        return {
-          id: doc.id,
-          text: data.text || "",
-          imageUrl: data.imageUrl || null,
-          sender: data.sender,
-          senderName: data.senderName,
-          read: data.read === true,
-          timestamp: timestampDate,
-        };
-      });
-      setMessages(msgs);
-    });
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const msgs = snapshot.docs.map(doc => {
+          const data = doc.data();
+          let timestampDate = null;
+          if (data.timestamp) {
+            if (data.timestamp.toDate) timestampDate = data.timestamp.toDate();
+            else if (typeof data.timestamp === 'string') timestampDate = new Date(data.timestamp);
+          }
+          return {
+            id: doc.id,
+            text: data.text || "",
+            imageUrl: data.imageUrl || null,   // ← ADDED THIS LINE
+            sender: data.sender,
+            senderName: data.senderName,
+            read: data.read === true,
+            timestamp: timestampDate,
+          };
+        });
+        setMessages(msgs);
+      },
+      (error) => console.error("Chat listener error:", error)
+    );
     return unsubscribe;
   }, [conversationId]);
 
-  // Mark messages as read
   useEffect(() => {
     if (!conversationId) return;
     const markMessagesAsRead = async () => {
@@ -161,7 +160,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
     markMessagesAsRead();
   }, [conversationId, isAdmin]);
 
-  // Fetch customer details (for admin)
   useEffect(() => {
     if (!otherUserId || !isAdmin) return;
     const fetchUserDetails = async () => {
@@ -195,7 +193,7 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
         fromUid: currentUser.uid,
         toUid: otherUserId,
         timestamp: serverTimestamp(),
-        read: false,
+        read: false
       };
       await addDoc(collection(db, "conversations", conversationId, "messages"), messageData);
       setNewMessage("");
@@ -204,6 +202,77 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
       alert("Failed to send message.");
     } finally {
       setSending(false);
+    }
+  };
+
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_SIZE = 1200;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height = Math.round((height * MAX_SIZE) / width);
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width = Math.round((width * MAX_SIZE) / height);
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            resolve(blob);
+          }, 'image/jpeg', 0.8);
+        };
+      };
+    });
+  };
+
+  const handleCameraUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const compressedBlob = await compressImage(file);
+      const formData = new FormData();
+      formData.append('file', compressedBlob, 'photo.jpg');
+      formData.append('upload_preset', 'chat_uploads');
+      const response = await fetch('https://api.cloudinary.com/v1_1/dvbbusgra/image/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+      if (data.secure_url) {
+        await addDoc(collection(db, "conversations", conversationId, "messages"), {
+          imageUrl: data.secure_url,
+          text: "",
+          sender: isAdmin ? "admin" : "customer",
+          senderName: isAdmin ? "Owner" : currentUser?.displayName || "Customer",
+          fromUid: currentUser.uid,
+          toUid: otherUserId,
+          timestamp: serverTimestamp(),
+          read: false
+        });
+      } else {
+        alert("Upload failed: " + (data.error?.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload image. Please try again.");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -225,7 +294,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md flex flex-col h-[600px]">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <Avatar name={otherName} imageUrl={avatarToShow} />
@@ -242,7 +310,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-white/40 py-8">No messages yet. Start the conversation!</div>
@@ -261,7 +328,9 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
                         onClick={() => window.open(msg.imageUrl, '_blank')}
                       />
                     )}
-                    {msg.text && <p className="text-sm break-words">{msg.text}</p>}
+                    {msg.text && msg.text.trim() !== "" && (
+                      <p className="text-sm break-words">{msg.text}</p>
+                    )}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <p className="text-[10px] opacity-60">{timeStr}</p>
                       {isMyMessage && msg.read === true && <span className="text-[10px] text-green-400">✓✓ Seen</span>}
@@ -275,7 +344,6 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
         <div className="p-4 border-t border-white/10 flex gap-2">
           <input
             type="text"
@@ -285,8 +353,36 @@ const ChatModal = ({ userId, userName, userEmail, onClose }) => {
             placeholder="Type a message..."
             className="flex-1 px-4 py-2 rounded-xl bg-white/10 border border-white/20 focus:border-amber-400 focus:outline-none text-white text-sm"
           />
-          <button onClick={sendMessage} disabled={sending} className="px-4 py-2 rounded-xl bg-amber-400 text-black font-bold hover:bg-amber-300 disabled:opacity-50">
-            Send
+          
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleCameraUpload}
+            className="hidden"
+            id="image-input"
+          />
+          <label
+            htmlFor="image-input"
+            className={`px-4 py-2 rounded-xl bg-green-500 text-white font-bold hover:bg-green-400 cursor-pointer transition-all flex items-center justify-center ${uploadingImage ? 'opacity-50 pointer-events-none' : ''}`}
+            title="Upload image"
+          >
+            {uploadingImage ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <Camera className="w-5 h-5" />
+            )}
+          </label>
+          
+          <button 
+            onClick={sendMessage} 
+            disabled={sending} 
+            className="px-4 py-2 rounded-xl bg-amber-400 text-black font-bold hover:bg-amber-300 disabled:opacity-50 flex items-center justify-center"
+          >
+            {sending ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>
