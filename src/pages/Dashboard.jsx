@@ -862,34 +862,34 @@ export default function Dashboard() {
   };
 
    // Online/offline presence for customer
-  useEffect(() => {
-    if (!user) return;
-    const userStatusRef = doc(db, "users", user.uid);
+ // useEffect(() => {
+   // if (!user) return;
+    //const userStatusRef = doc(db, "users", user.uid);
     
     // Set online when dashboard loads
-    setDoc(userStatusRef, { 
-      online: true, 
-      lastSeen: new Date().toISOString() 
-    }, { merge: true });
+   // setDoc(userStatusRef, { 
+     // online: true, 
+      //lastSeen: new Date().toISOString() 
+   // }, { merge: true });
     
     // Set offline when page closes or refreshes
-    const handleBeforeUnload = () => {
-      setDoc(userStatusRef, { 
-        online: false, 
-        lastSeen: new Date().toISOString() 
-      }, { merge: true });
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
+   // const handleBeforeUnload = () => {
+    //  setDoc(userStatusRef, { 
+     //   online: false, 
+      //  lastSeen: new Date().toISOString() 
+     // }, { merge: true });
+   // };
+   // window.addEventListener("beforeunload", handleBeforeUnload);
     
     // Clean up when component unmounts
-    return () => {
-      setDoc(userStatusRef, { 
-        online: false, 
-        lastSeen: new Date().toISOString() 
-      }, { merge: true });
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [user]);
+  //  return () => {
+    //  setDoc(userStatusRef, { 
+      //  online: false, 
+       // lastSeen: new Date().toISOString() 
+   //   }, { merge: true });
+    //  window.removeEventListener("beforeunload", handleBeforeUnload);
+   // };
+ // }, [user]);
 
   const refreshUserProfile = async () => {
     if (!user) return;
