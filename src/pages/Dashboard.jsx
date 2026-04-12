@@ -2130,8 +2130,9 @@ await addDoc(collection(db, "notifications"), {
 
         {showQR && <QRModal onClose={() => setShowQR(false)} />}
         {showProfile && <ProfileModal onClose={() => setShowProfile(false)} onProfileUpdate={refreshUserProfile} />}
-        {showChatList && (
+       {showChatList && (
   <ConversationList 
+    key={Date.now()}   // ← Add this line
     onClose={() => { 
       setShowChatList(false); 
       setOpenChatUserId(null); 
