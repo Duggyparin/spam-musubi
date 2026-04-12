@@ -84,12 +84,18 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
             const isFromOther = (isAdmin && lastMsg.sender === "customer") || (!isAdmin && lastMsg.sender === "admin");
             const isRead = lastMsg.read === true;
             unread = isFromOther && !isRead;
+
+             console.log("Last message:", lastMsg.text, "sender:", lastMsg.sender, "read:", lastMsg.read, "isFromOther:", isFromOther, "unread:", unread);
+            
           } else {
             unread = false;
           }
         } catch (err) {
           console.error("Error fetching last message:", err);
         }
+
+        
+        
 
         convList.push({
           userId: otherUserId,
