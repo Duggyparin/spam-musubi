@@ -50,7 +50,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
         const otherUserId = data.participants.find(uid => uid !== currentUser.uid);
         if (!otherUserId) continue;
 
-        // Fetch other user's details – default to "Customer"/"Owner" if not found
+        // Fetch other user's details
         let userName = otherUserId === ADMIN_UID ? "Owner" : "Customer";
         let userEmail = "";
         let avatarUrl = null;
@@ -84,7 +84,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           console.error("Error fetching last message:", err);
         }
 
-        // Check for ANY unread message from the other user
+        // Check for unread messages
         let unread = false;
         try {
           const otherSender = isAdmin ? "customer" : "admin";
@@ -149,13 +149,17 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Conversation List */}
             <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden">
               <div className="p-3 border-b border-white/10 text-white/50 text-xs uppercase">Conversations</div>
               <div className="divide-y divide-white/10 max-h-[500px] overflow-y-auto">
                 {conversations.map((conv) => (
                   <button
                     key={conv.userId}
-                    onClick={() => setSelectedChat(conv)}
+                    onClick={() => {
+                      console.log("Selected chat:", conv);
+                      setSelectedChat(conv);
+                    }}
                     className={`w-full p-3 text-left hover:bg-white/5 transition-all ${selectedChat?.userId === conv.userId ? 'bg-white/10' : ''}`}
                   >
                     <div className="flex items-center gap-3">
@@ -177,6 +181,7 @@ const ConversationList = ({ onClose, preselectedUserId = null }) => {
               </div>
             </div>
 
+            {/* Chat Modal */}
             <div className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl flex flex-col h-[500px]">
               {selectedChat ? (
                 <ChatModal
