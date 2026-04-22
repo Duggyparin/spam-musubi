@@ -15,12 +15,12 @@ const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
 // ----- PRODUCTS -----
 const PRODUCTS = [
-  { id: "classic", name: "Classic Spam Musubi", desc: "Premium spam glazed with our signature teriyaki sauce.", price: 30, tag: "Best Discount", image: "/musubi.png" },
-  { id: "katsubi", name: "Katsubi",              desc: "Crispy katsu-style musubi with tonkatsu sauce.", price: 35, tag: "New", image: "/katsubimusubi.jpg" },
-  { id: "kimchi",  name: "Kimchi Musubi",       desc: "Spam musubi with a spicy kimchi twist.", price: 40, tag: "Best Seller", image: "/kimchimusubi.jpg" },
-  { id: "cheesy",  name: "Cheesy Musubi",        desc: "Classic spam musubi topped with melted cheese.", price: 45, tag: "Fan Favorite", image: "/cheesymusubi.jpg" },
-  { id: "ricebowl", name: "🍚 Rice Bowl Musubi",  desc: "Deconstructed musubi in a bowl – spam,kimchi, rice, egg, and nori flakes.", price: 50, tag: "New", image: "/ricebowl.jpg" },
-];
+    { id: "classic", name: "Classic Spam Musubi", desc: "Premium spam glazed with our signature teriyaki sauce.", price: 30, tag: "Best Discount", image: "/musubi.png" },
+    { id: "katsubi", name: "Katsubi",              desc: "Crispy katsu-style musubi with tonkatsu sauce.", price: 35, tag: "New", image: "/katsubimusubi.jpg" },
+    { id: "kimchi",  name: "Kimchi Musubi",       desc: "Spam musubi with a spicy kimchi twist.", price: 40, tag: "Best Seller", image: "/kimchimusubi.jpg" },
+    { id: "cheesy",  name: "Cheesy Musubi",        desc: "Classic spam musubi topped with melted cheese.", price: 45, tag: "Fan Favorite", image: "/cheesymusubi.jpg" },
+    { id: "ricebowl", name: "🍚 Rice Bowl Musubi",  desc: "Deconstructed musubi in a bowl – spam,kimchi, rice, egg, and nori flakes.", price: 50, tag: "New", image: "/ricebowl.jpg" },
+  ];
 
 const SAUCES = [
   { value: "none",         label: "No sauce" },
