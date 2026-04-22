@@ -108,7 +108,7 @@ const Toast = ({ toasts, removeToast }) => (
 );
 
 // ----- ONBOARDING TOUR -----
-const OnboardingTour = ({ onComplete, o  nSkip }) => {
+const OnboardingTour = ({ onComplete, onSkip }) => {
   const [step, setStep] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   
