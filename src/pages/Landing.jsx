@@ -7,56 +7,61 @@ const products = [
   {
     name: 'Classic Spam Musubi',
     description: 'Premium spam glazed with our signature teriyaki sauce, wrapped in seasoned rice and nori.',
-    price: '₱35',
+    price: '₱30',
     image: '/musubi.png',
-    tag: 'Best Seller',
+    tag: 'Best Discount',
     icon: '🍙',
-    color: 'from-amber-400 to-orange-500'
+    color: 'from-amber-400 to-orange-500',
+    imageAlt: 'Classic Spam Musubi - Glazed teriyaki spam on seasoned rice wrapped with fresh nori seaweed'
+  },
+  {
+    name: 'Katsubi',
+    description: 'Crispy katsu-style musubi with tonkatsu sauce – a crunchy twist on the classic.',
+    price: '₱35',
+    image: '/katsubimusubi.jpg',
+    tag: 'New',
+    icon: '🍗',
+    color: 'from-amber-500 to-orange-600',
+    imageAlt: 'Katsubi - Crispy breaded chicken katsu musubi drizzled with sweet tonkatsu sauce'
   },
   {
     name: 'Kimchi Musubi',
     description: 'Spam musubi with a spicy kimchi twist — bold, tangy, and packed with flavor.',
-    price: '₱50',
-    image: '/musubi.png',
-    tag: 'New',
+    price: '₱40',
+    image: '/kimchimusubi.jpg',
+    tag: 'Best Seller',
     icon: '🌶️',
-    color: 'from-red-400 to-orange-500'
+    color: 'from-red-400 to-orange-500',
+    imageAlt: 'Kimchi Musubi - Savory spam paired with spicy fermented kimchi for a bold flavor explosion'
   },
   {
     name: 'Cheesy Musubi',
     description: 'Classic spam musubi topped with melted cheese for a rich and creamy bite.',
     price: '₱45',
-    image: '/musubi.png',
+    image: '/cheesymusubi.jpg',
     tag: 'Fan Favorite',
     icon: '🧀',
-    color: 'from-yellow-400 to-amber-500'
-  },
-  {
-    name: 'Katsubi',
-    description: 'Crispy katsu-style musubi with tonkatsu sauce – a crunchy twist on the classic.',
-    price: '₱45',
-    image: '/musubi.png',
-    tag: 'New',
-    icon: '🍗',
-    color: 'from-amber-500 to-orange-600'
+    color: 'from-yellow-400 to-amber-500',
+    imageAlt: 'Cheesy Musubi - Warm melted cheese stretching over teriyaki glazed spam and rice'
   },
   {
     name: 'Rice Bowl Musubi',
-    description: 'Deconstructed musubi in a bowl – spam, rice, egg, and nori flakes. Perfect for a hearty meal!',
-    price: '₱65',
-    image: '/musubi.png',
+    description: 'Deconstructed musubi in a bowl – spam, kimchi, rice, egg, and nori flakes. Perfect for a hearty meal!',
+    price: '₱50',
+    image: '/ricebowl.jpg',
     tag: 'New',
     icon: '🍚',
-    color: 'from-green-400 to-emerald-500'
+    color: 'from-green-400 to-emerald-500',
+    imageAlt: 'Rice Bowl Musubi - Deconstructed musubi bowl with spam chunks, kimchi, rice, egg, and nori flakes'
   }
 ]
 
 const addons = [
-  { name: 'Garlic Mayo', price: '+₱5', emoji: '🧄' },
-  { name: 'Japanese Mayo', price: '+₱5', emoji: '🍶' },
-  { name: 'Chili Oil', price: '+₱5', emoji: '🌶️' },
-  { name: 'Gochujang', price: '+₱5', emoji: '🔥' },
-  { name: 'Egg', price: '+₱5', emoji: '🍳' },
+  { name: 'Garlic Mayo', price: '+₱5', emoji: '🧄', description: 'Creamy garlic-infused mayonnaise' },
+  { name: 'Japanese Mayo', price: '+₱5', emoji: '🍶', description: 'Smooth and tangy Japanese-style mayo' },
+  { name: 'Chili Oil', price: '+₱5', emoji: '🌶️', description: 'Spicy chili-infused oil for heat lovers' },
+  { name: 'Gochujang', price: '+₱5', emoji: '🔥', description: 'Sweet and spicy Korean red chili paste' },
+  { name: 'Egg', price: '+₱5', emoji: '🍳', description: 'Steamed spam-egg mixture, thinly sliced' },
 ]
 
 export default function Landing() {
@@ -137,7 +142,7 @@ export default function Landing() {
         <div className="absolute inset-0 z-0">
           <img
             src="/musubi.png"
-            alt="Spam Musubi"
+            alt="Background pattern of Spam Musubi"
             className="w-full h-full object-cover opacity-30"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-[#0a0a0a]" />
@@ -225,7 +230,7 @@ export default function Landing() {
 
         <div className="grid grid-cols-3 gap-6 max-w-2xl mx-auto">
           {[
-            { num: '₱35', label: 'Starting Price', icon: '💰' },
+            { num: '₱30', label: 'Starting Price', icon: '💰' },
             { num: '100%', label: 'Homemade', icon: '🧑‍🍳' },
             { num: '🏫', label: 'Campus Pickup', icon: '📍' },
           ].map((stat, i) => (
@@ -276,14 +281,23 @@ export default function Landing() {
           <h2 className="text-4xl md:text-5xl font-black mt-3">
             Our Products
           </h2>
+          <p className="text-white/50 text-lg max-w-2xl mx-auto mt-4">
+            Choose from our delicious selection of freshly made Spam Musubi varieties
+          </p>
         </div>
 
         {products.map((product, i) => (
           <div key={i} className="flex flex-col md:flex-row gap-8 items-center bg-white/5 border border-white/10 rounded-3xl p-8 mb-6 hover:border-amber-400/30 transition-all duration-300 group">
             <div className="relative flex-shrink-0">
-              <div className={`w-48 h-48 rounded-2xl bg-gradient-to-br ${product.color} flex items-center justify-center text-7xl shadow-xl group-hover:scale-105 transition-transform`}>
-                {product.icon}
-              </div>
+              <img 
+                src={product.image} 
+                alt={product.imageAlt}
+                className="w-48 h-48 rounded-2xl object-cover shadow-xl group-hover:scale-105 transition-transform duration-300"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/musubi.png';
+                }}
+              />
               <span className="absolute -top-3 -right-3 bg-amber-400 text-black text-xs font-bold px-3 py-1 rounded-full">
                 {product.tag}
               </span>
@@ -291,7 +305,13 @@ export default function Landing() {
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-2xl font-black mb-3">{product.name}</h3>
               <p className="text-white/60 mb-6 leading-relaxed">{product.description}</p>
-              <div className="text-4xl font-black text-amber-400">{product.price}</div>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                <div className="text-4xl font-black text-amber-400">{product.price}</div>
+                <div className="text-white/40 text-sm flex items-center gap-1">
+                  <span>📸</span>
+                  <span>{product.imageAlt.split(' - ')[0]}</span>
+                </div>
+              </div>
             </div>
           </div>
         ))}
@@ -307,6 +327,7 @@ export default function Landing() {
                 <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">{addon.emoji}</div>
                 <div className="font-bold mb-1 text-sm">{addon.name}</div>
                 <div className="text-amber-400 font-black">{addon.price}</div>
+                <div className="text-white/30 text-xs mt-2 hidden md:block">{addon.description}</div>
               </div>
             ))}
           </div>
@@ -370,7 +391,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FOOTER with PRIVACY POLICY LINK (required for OAuth verification) */}
       <footer className="border-t border-white/10 py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-white/40 text-sm">
           <div className="flex items-center gap-2">
