@@ -38,7 +38,7 @@ const products = [
     name: 'Cheesy Musubi',
     description: 'Classic spam musubi topped with melted cheese for a rich and creamy bite.',
     price: '₱45',
-    image: '/cheesymusubi.jpg', 
+    image: '/cheesymusubi.jpg',
     tag: 'Fan Favorite',
     icon: '🧀',
     color: 'from-yellow-400 to-amber-500',
@@ -288,20 +288,26 @@ export default function Landing() {
 
         {products.map((product, i) => (
           <div key={i} className="flex flex-col md:flex-row gap-8 items-center bg-white/5 border border-white/10 rounded-3xl p-8 mb-6 hover:border-amber-400/30 transition-all duration-300 group">
+            
+            {/* NEW IMAGE CODE WITH IMPROVED POSITIONING */}
             <div className="relative flex-shrink-0">
-              <img 
-                src={product.image} 
-                alt={product.imageAlt}
-                className="w-48 h-48 rounded-2xl object-cover shadow-xl group-hover:scale-105 transition-transform duration-300"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = '/musubi.png';
-                }}
-              />
+              <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-xl group-hover:scale-105 transition-transform duration-300">
+                <img 
+                  src={product.image} 
+                  alt={product.imageAlt}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/musubi.png';
+                  }}
+                />
+              </div>
               <span className="absolute -top-3 -right-3 bg-amber-400 text-black text-xs font-bold px-3 py-1 rounded-full">
                 {product.tag}
               </span>
             </div>
+            {/* NEW IMAGE CODE ENDS HERE */}
+
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-2xl font-black mb-3">{product.name}</h3>
               <p className="text-white/60 mb-6 leading-relaxed">{product.description}</p>
