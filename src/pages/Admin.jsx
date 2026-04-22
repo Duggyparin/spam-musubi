@@ -14,11 +14,11 @@ const ARCHIVE_SECRET = "mySecret123";
 const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
 const PRODUCTS = [
-  { id: "classic", name: "Classic Spam Musubi", price: 35 },
-  { id: "kimchi",  name: "Kimchi Musubi",       price: 50 },
+  { id: "classic", name: "Classic Spam Musubi", price: 30 },
+  { id: "katsubi", name: "Katsubi",              price: 35 },
+  { id: "kimchi",  name: "Kimchi Musubi",       price: 40 },
   { id: "cheesy",  name: "Cheesy Musubi",        price: 45 },
-  { id: "katsubi", name: "Katsubi",              price: 45 },
-  { id: "ricebowl", name: "🍚 Rice Bowl Musubi", price: 65 },
+  { id: "ricebowl", name: "🍚 Rice Bowl Musubi", price: 50 },
 ];
 
 const Toast = ({ toasts, removeToast }) => (
