@@ -59,7 +59,6 @@ const products = [
 const addons = [
   { name: 'Garlic Mayo', price: '+₱5', emoji: '🧄', description: 'Creamy garlic-infused mayonnaise' },
   { name: 'Japanese Mayo', price: '+₱5', emoji: '🍶', description: 'Smooth and tangy Japanese-style mayo' },
-  { name: 'Chili Oil', price: '+₱5', emoji: '🌶️', description: 'Spicy chili-infused oil for heat lovers' },
   { name: 'Gochujang', price: '+₱5', emoji: '🔥', description: 'Sweet and spicy Korean red chili paste' },
   { name: 'Egg', price: '+₱5', emoji: '🍳', description: 'Steamed spam-egg mixture, thinly sliced' },
 ]
