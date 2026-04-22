@@ -15,11 +15,11 @@ const ADMIN_UID = "xX2t8o5YOhXq1xXAzA8MxwUYE9D2";
 
 // ----- PRODUCTS -----
 const PRODUCTS = [
-  { id: "classic", name: "Classic Spam Musubi", desc: "Premium spam glazed with our signature teriyaki sauce.", price: 35, tag: "Best Seller", image: "/musubi.png" },
-  { id: "kimchi",  name: "Kimchi Musubi",       desc: "Spam musubi with a spicy kimchi twist.", price: 45, tag: "New", image: "/musubi.png" },
-  { id: "cheesy",  name: "Cheesy Musubi",        desc: "Classic spam musubi topped with melted cheese.", price: 50, tag: "Fan Favorite", image: "/musubi.png" },
-  { id: "katsubi", name: "Katsubi",              desc: "Crispy katsu-style musubi with tonkatsu sauce.", price: 40, tag: "New", image: "/musubi.png" },
-  { id: "ricebowl", name: "🍚 Rice Bowl Musubi",  desc: "Deconstructed musubi in a bowl – spam, rice, egg, and nori flakes.", price: 65, tag: "New", image: "/musubi.png" },
+  { id: "classic", name: "Classic Spam Musubi", desc: "Premium spam glazed with our signature teriyaki sauce.", price: 30, tag: "Best Discount", image: "/musubi.png" },
+  { id: "katsubi", name: "Katsubi",              desc: "Crispy katsu-style musubi with tonkatsu sauce.", price: 35, tag: "New", image: "/katsubimusubi.jpg" },
+  { id: "kimchi",  name: "Kimchi Musubi",       desc: "Spam musubi with a spicy kimchi twist.", price: 40, tag: "Best Seller", image: "/kimchimusubi.jpg" },
+  { id: "cheesy",  name: "Cheesy Musubi",        desc: "Classic spam musubi topped with melted cheese.", price: 45, tag: "Fan Favorite", image: "/cheesymusubi.jpg" },
+  { id: "ricebowl", name: "🍚 Rice Bowl Musubi",  desc: "Deconstructed musubi in a bowl – spam,kimchi, rice, egg, and nori flakes.", price: 50, tag: "New", image: "/ricebowl.jpg" },
 ];
 
 const SAUCES = [
@@ -108,7 +108,7 @@ const Toast = ({ toasts, removeToast }) => (
 );
 
 // ----- ONBOARDING TOUR -----
-const OnboardingTour = ({ onComplete, onSkip }) => {
+const OnboardingTour = ({ onComplete, o  nSkip }) => {
   const [step, setStep] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   
@@ -1944,7 +1944,7 @@ await addDoc(collection(db, "notifications"), {
                                     <button key={sauce.value} type="button" onClick={() => setCurrentItem({ ...currentItem, sauce: sauce.value })}
                                       className={`flex justify-between px-3 py-2 rounded-xl border text-sm ${currentItem.sauce === sauce.value ? "bg-amber-400/10 border-amber-400 text-white" : "bg-white/5 border-white/10 text-white/80"}`}>
                                       <span>{sauce.label}</span>
-                                      {sauce.value !== "none" && <span className="text-amber-400">+₱10</span>}
+                                      {sauce.value !== "none" && <span className="text-amber-400">+₱5</span>}
                                     </button>
                                   ))}
                                 </div>
